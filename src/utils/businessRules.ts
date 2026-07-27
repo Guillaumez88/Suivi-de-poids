@@ -49,7 +49,7 @@ export function calculerMarqueursCalendrier(
   return resultat;
 }
 
-function ajouterJours(date: string, jours: number): string {
+export function ajouterJours(date: string, jours: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + jours);
   return d.toISOString().slice(0, 10);
@@ -107,6 +107,51 @@ export function tendance(
     deltaKg: Math.round((maAujourdhui - maReference) * 10) / 10,
     joursCouverts,
   };
+}
+
+export interface PointSerieMoyenneMobile {
+  date: string;
+  moyenne: number | null;
+}
+
+/**
+ * Section 5.4 / courbe d'accueil — série de moyennes mobiles jour par jour
+ * sur les `nJours` se terminant à `dateFin` (incluse), pour alimenter le
+ * tracé de la courbe. Réutilise `moyenneMobile` pour chaque jour plutôt que
+ * de recalculer la fenêtre glissante à la main.
+ */
+export function serieMoyenneMobile(
+  pesees: PeseeJour[],
+  dateFin: string,
+  nJours: number,
+  fenetreMoyenne = 7
+): PointSerieMoyenneMobile[] {
+  const debut = ajouterJours(dateFin, -(nJours - 1));
+  const resultat: PointSerieMoyenneMobile[] = [];
+  let date = debut;
+  while (date <= dateFin) {
+    resultat.push({ date, moyenne: moyenneMobile(pesees, date, fenetreMoyenne) });
+    date = ajouterJours(date, 1);
+  }
+  return resultat;
+}
+
+/**
+ * Section 5.2 — écart avec la pesée valide la plus récente strictement
+ * avant `date`. Alimente le badge de variation de l'accueil (jamais un
+ * jugement "bon/mauvais", juste un chiffre et une direction). Retourne
+ * null si la pesée du jour ou une pesée antérieure manque.
+ */
+export function deltaDepuisPeseePrecedente(
+  pesees: PeseeJour[],
+  date: string
+): number | null {
+  const triees = [...pesees].sort((a, b) => a.date.localeCompare(b.date));
+  const peseeDuJour = triees.find((p) => p.date === date);
+  if (!peseeDuJour) return null;
+  const precedente = [...triees].reverse().find((p) => p.date < date);
+  if (!precedente) return null;
+  return Math.round((peseeDuJour.poidsKg - precedente.poidsKg) * 10) / 10;
 }
 
 /** Section 5.7 — IMC = poids / taille² (taille en mètres). Pas de catégorie affichée. */

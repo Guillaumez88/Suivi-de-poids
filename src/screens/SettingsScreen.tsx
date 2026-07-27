@@ -1,17 +1,21 @@
 import React, { useState } from "react";
-import { View, Text, Switch, TextInput, Alert, StyleSheet, Share } from "react-native";
+import { View, Text, Switch, TextInput, Alert, StyleSheet, Share, Pressable } from "react-native";
 import { signOut, deleteUser } from "firebase/auth";
+import { Download, User as IconeCompte, Trash2 } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
 import { creerOuMettreAJourUtilisateur } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Bouton } from "@/components/Button";
+import { Etiquette } from "@/components/Tag";
 import { useAppData } from "@/state/AppDataContext";
-import { colors, fonts, space } from "@/theme/theme";
+import { colors, fonts, space, iconStrokeWidth } from "@/theme/theme";
 import { calculerIMC } from "@/utils/businessRules";
 import {
   MensurationZone,
   Sexe,
+  UnitePoids,
+  UniteLongueur,
   ZONES_MENSURATION_LABELS,
 } from "@/types/models";
 import { versCsv } from "@/utils/csvExport";
@@ -20,6 +24,16 @@ const OPTIONS_SEXE: { valeur: Sexe; label: string }[] = [
   { valeur: "homme", label: "Homme" },
   { valeur: "femme", label: "Femme" },
   { valeur: "non_precise", label: "Non précisé" },
+];
+
+const OPTIONS_UNITE_POIDS: { valeur: UnitePoids; label: string }[] = [
+  { valeur: "kg", label: "kg" },
+  { valeur: "lb", label: "lb" },
+];
+
+const OPTIONS_UNITE_LONGUEUR: { valeur: UniteLongueur; label: string }[] = [
+  { valeur: "cm", label: "cm" },
+  { valeur: "in", label: "in" },
 ];
 
 const TOUTES_ZONES: MensurationZone[] = ["tour_de_taille", "hanches", "poitrine", "bras", "cuisses"];
@@ -78,42 +92,10 @@ export function SettingsScreen() {
 
   return (
     <EcranConteneur>
-      <Text style={styles.titre}>Paramètres</Text>
+      <Text style={styles.titre}>Réglages</Text>
 
-      <Carte style={{ marginTop: space[4] }}>
-        <Text style={styles.label}>Compte</Text>
-        <Text style={styles.valeurTexte}>{utilisateur.email}</Text>
-        <Bouton label="Se déconnecter" variante="ghost" onPress={() => signOut(auth)} />
-      </Carte>
-
-      <Carte style={{ marginTop: space[3] }}>
-        <Text style={styles.label}>Sexe</Text>
-        <View style={styles.segments}>
-          {OPTIONS_SEXE.map((o) => (
-            <Bouton
-              key={o.valeur}
-              label={o.label}
-              variante={utilisateur.sexe === o.valeur ? "primary" : "secondary"}
-              onPress={() => majChamp({ sexe: o.valeur })}
-              style={{ flex: 1 }}
-            />
-          ))}
-        </View>
-
-        <Text style={[styles.label, { marginTop: space[4] }]}>Taille (cm)</Text>
-        <TextInput
-          style={styles.champ}
-          keyboardType="numeric"
-          defaultValue={utilisateur.tailleCm?.toString() ?? ""}
-          onEndEditing={(e) => majChamp({ tailleCm: Number(e.nativeEvent.text) || undefined })}
-        />
-        <Text style={styles.aide}>
-          IMC {imc !== null ? imc.toFixed(1) : "— (renseigne ta taille pour le voir)"}
-        </Text>
-      </Carte>
-
-      <Carte style={{ marginTop: space[3] }}>
-        <Text style={styles.label}>Fenêtre matinale et rappels</Text>
+      <SectionKicker label="Le matin" />
+      <Carte style={{ gap: space[3] }}>
         <ChampHeureLigne
           label="Début de la fenêtre"
           valeur={utilisateur.fenetreMatinDebut}
@@ -136,28 +118,69 @@ export function SettingsScreen() {
         />
       </Carte>
 
-      <Carte style={{ marginTop: space[3] }}>
+      <SectionKicker label="Affichage" />
+      <Carte style={{ gap: space[3] }}>
         <View style={styles.ligneSwitch}>
-          <Text style={styles.label}>Masquer le poids absolu</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Mon poids en grand</Text>
+            <Text style={styles.aide}>Sinon, l'accueil n'affiche que les variations.</Text>
+          </View>
           <Switch
-            value={utilisateur.afficherPoidsAbsolu === false}
-            onValueChange={(v) => majChamp({ afficherPoidsAbsolu: !v })}
+            value={utilisateur.afficherPoidsAbsolu}
+            onValueChange={(v) => majChamp({ afficherPoidsAbsolu: v })}
             trackColor={{ true: colors.accent, false: colors.neutral300 }}
           />
         </View>
-        <Text style={styles.aide}>N'affiche que les variations, jamais le chiffre exact.</Text>
+        <View style={styles.diviseur} />
+        <View style={styles.ligneSwitch}>
+          <Text style={styles.labelLigne}>Sexe</Text>
+          <View style={styles.segments}>
+            {OPTIONS_SEXE.map((o) => (
+              <Text
+                key={o.valeur}
+                onPress={() => majChamp({ sexe: o.valeur })}
+                style={[styles.segment, utilisateur.sexe === o.valeur && styles.segmentActif]}
+              >
+                {o.label}
+              </Text>
+            ))}
+          </View>
+        </View>
+        <Text style={styles.aide}>Sert uniquement au calcul de l'IMC{imc !== null ? ` — IMC ${imc.toFixed(1)}` : ""}.</Text>
+        <View style={styles.diviseur} />
+        <View style={styles.ligneSwitch}>
+          <Text style={styles.labelLigne}>Unités</Text>
+          <View style={styles.segments}>
+            {OPTIONS_UNITE_POIDS.map((o) => (
+              <Text
+                key={o.valeur}
+                onPress={() => majChamp({ unitePoids: o.valeur })}
+                style={[styles.segment, utilisateur.unitePoids === o.valeur && styles.segmentActif]}
+              >
+                {o.label}
+              </Text>
+            ))}
+            {OPTIONS_UNITE_LONGUEUR.map((o) => (
+              <Text
+                key={o.valeur}
+                onPress={() => majChamp({ uniteLongueur: o.valeur })}
+                style={[styles.segment, utilisateur.uniteLongueur === o.valeur && styles.segmentActif]}
+              >
+                {o.label}
+              </Text>
+            ))}
+          </View>
+        </View>
       </Carte>
 
-      <Carte style={{ marginTop: space[3] }}>
-        <Text style={styles.label}>Zones de mensuration suivies</Text>
+      <SectionKicker label="Ce que je suis" />
+      <Carte>
         <View style={styles.puces}>
           {TOUTES_ZONES.map((z) => {
             const actif = utilisateur.zonesMensurationActives.includes(z);
             return (
-              <Bouton
+              <Pressable
                 key={z}
-                label={ZONES_MENSURATION_LABELS[z]}
-                variante={actif ? "primary" : "secondary"}
                 onPress={() =>
                   majChamp({
                     zonesMensurationActives: actif
@@ -165,26 +188,50 @@ export function SettingsScreen() {
                       : [...utilisateur.zonesMensurationActives, z],
                   })
                 }
-              />
+              >
+                <Etiquette label={ZONES_MENSURATION_LABELS[z]} ton={actif ? "accent" : "neutral"} />
+              </Pressable>
             );
           })}
         </View>
+        <Text style={[styles.aide, { marginTop: space[3] }]}>Tu peux en ajouter ou en retirer quand tu veux, rien n'est perdu.</Text>
       </Carte>
 
-      <Bouton
-        label={enExport ? "Export en cours…" : "Exporter mes données (CSV)"}
-        onPress={onExporterCsv}
-        disabled={enExport}
-        bloc
-        style={{ marginTop: space[5] }}
-      />
-      <Bouton
-        label="Supprimer mon compte"
-        variante="ghost"
-        onPress={onSupprimerCompte}
-        style={{ marginTop: space[3], alignSelf: "center" }}
-      />
+      <SectionKicker label="Tes données" />
+      <Carte style={{ padding: 0, overflow: "hidden" }}>
+        <LigneDonnee icone={<IconeCompte size={19} color={colors.accent700} strokeWidth={iconStrokeWidth} />} label={utilisateur.email} />
+        <View style={styles.diviseurPleineLargeur} />
+        <Pressable style={styles.ligneAction} onPress={() => signOut(auth)}>
+          <Text style={styles.labelAction}>Se déconnecter</Text>
+        </Pressable>
+        <View style={styles.diviseurPleineLargeur} />
+        <Pressable style={styles.ligneAction} onPress={onExporterCsv} disabled={enExport}>
+          <Download size={19} color={colors.accent700} strokeWidth={iconStrokeWidth} />
+          <Text style={styles.labelAction}>{enExport ? "Export en cours…" : "Exporter en CSV"}</Text>
+          <Text style={styles.aideDroite}>tout, d'un coup</Text>
+        </Pressable>
+        <View style={styles.diviseurPleineLargeur} />
+        <Pressable style={styles.ligneAction} onPress={onSupprimerCompte}>
+          <Trash2 size={19} color={colors.neutral700} strokeWidth={iconStrokeWidth} />
+          <Text style={[styles.labelAction, { color: colors.neutral700 }]}>Supprimer mon compte</Text>
+        </Pressable>
+      </Carte>
+
+      <Text style={styles.piedDePage}>Tes données restent sur ton téléphone. Personne d'autre ne les lit.</Text>
     </EcranConteneur>
+  );
+}
+
+function SectionKicker({ label }: { label: string }) {
+  return <Text style={styles.kicker}>{label}</Text>;
+}
+
+function LigneDonnee({ icone, label }: { icone: React.ReactNode; label: string }) {
+  return (
+    <View style={styles.ligneAction}>
+      {icone}
+      <Text style={styles.labelAction}>{label}</Text>
+    </View>
   );
 }
 
@@ -211,21 +258,35 @@ function ChampHeureLigne({
 }
 
 const styles = StyleSheet.create({
-  titre: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, marginTop: space[4] },
-  label: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.text, marginBottom: space[2] },
-  labelLigne: { fontFamily: fonts.bodyMedium, fontSize: 13.5, color: colors.text },
-  valeurTexte: { fontFamily: fonts.body, fontSize: 14, color: colors.neutral700, marginBottom: space[2] },
-  aide: { fontFamily: fonts.body, fontSize: 12, color: colors.neutral700, marginTop: space[2] },
-  segments: { flexDirection: "row", gap: space[2] },
-  champ: {
-    backgroundColor: colors.bg,
-    borderRadius: 999,
-    paddingVertical: space[2],
-    paddingHorizontal: space[4],
-    fontFamily: fonts.body,
-    color: colors.text,
+  titre: { fontFamily: fonts.heading, fontSize: 27, color: colors.text, marginTop: space[3], marginBottom: space[2] },
+  kicker: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11.5,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: colors.neutral600,
+    marginTop: space[4],
+    marginBottom: space[2],
+    paddingHorizontal: space[1],
   },
-  ligneHeure: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space[2] },
+  labelLigne: { fontFamily: fonts.bodyMedium, fontSize: 14.5, color: colors.text },
+  aide: { fontFamily: fonts.body, fontSize: 12.5, color: colors.neutral700 },
+  aideDroite: { fontFamily: fonts.body, fontSize: 12.5, fontWeight: "400", color: colors.neutral600, marginLeft: "auto" },
+  diviseur: { height: 1, backgroundColor: colors.divider },
+  diviseurPleineLargeur: { height: 1, backgroundColor: colors.divider },
+  segments: { flexDirection: "row", gap: 5 },
+  segment: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.neutral700,
+    paddingVertical: 7,
+    paddingHorizontal: 15,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  segmentActif: { backgroundColor: colors.accent, color: colors.bg, fontWeight: "700" },
+  ligneHeure: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   champHeure: {
     backgroundColor: colors.bg,
     borderRadius: 999,
@@ -237,6 +298,15 @@ const styles = StyleSheet.create({
     minWidth: 72,
     textAlign: "center",
   },
-  ligneSwitch: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ligneSwitch: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space[3] },
   puces: { flexDirection: "row", flexWrap: "wrap", gap: space[2] },
+  ligneAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    paddingVertical: space[4],
+    paddingHorizontal: space[4],
+  },
+  labelAction: { fontFamily: fonts.body, fontSize: 14.5, fontWeight: "600", color: colors.text },
+  piedDePage: { fontFamily: fonts.body, fontSize: 12, color: colors.neutral600, marginTop: space[4], marginBottom: space[4] },
 });

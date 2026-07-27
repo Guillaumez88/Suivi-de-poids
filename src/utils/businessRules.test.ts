@@ -3,6 +3,8 @@ import {
   calculerMarqueursCalendrier,
   moyenneMobile,
   tendance,
+  serieMoyenneMobile,
+  deltaDepuisPeseePrecedente,
   calculerIMC,
   alerteSaignementRecurrent,
   estDansFenetreMatinale,
@@ -104,6 +106,52 @@ describe("moyenneMobile et tendance (section 5.4)", () => {
     // importante (delta plus négatif) que sur 7 jours.
     expect(t30!.deltaKg).toBeLessThan(t7!.deltaKg);
     expect(t30!.joursCouverts).toBeGreaterThan(t7!.joursCouverts);
+  });
+});
+
+describe("serieMoyenneMobile (courbe d'accueil)", () => {
+  const peseesEparses = [
+    { date: "2026-07-20", poidsKg: 82.5 },
+    { date: "2026-07-21", poidsKg: 82.2 },
+    { date: "2026-07-22", poidsKg: 82.1 },
+    { date: "2026-07-23", poidsKg: 82.3 },
+    { date: "2026-07-24", poidsKg: 81.9 },
+  ];
+
+  test("retourne un point par jour sur la plage demandée", () => {
+    const serie = serieMoyenneMobile(peseesEparses, "2026-07-24", 5);
+    expect(serie.map((p) => p.date)).toEqual([
+      "2026-07-20",
+      "2026-07-21",
+      "2026-07-22",
+      "2026-07-23",
+      "2026-07-24",
+    ]);
+  });
+
+  test("les jours sans historique dans la fenêtre glissante ont une moyenne nulle", () => {
+    const serie = serieMoyenneMobile(peseesEparses, "2026-07-24", 10);
+    expect(serie[0].moyenne).toBeNull(); // 2026-07-15, aucune pesée dans les 7 jours précédents
+    expect(serie[serie.length - 1].moyenne).not.toBeNull();
+  });
+});
+
+describe("deltaDepuisPeseePrecedente (section 5.2)", () => {
+  const pesees = [
+    { date: "2026-07-23", poidsKg: 82.3 },
+    { date: "2026-07-24", poidsKg: 81.9 },
+  ];
+
+  test("calcule l'écart avec la pesée valide précédente", () => {
+    expect(deltaDepuisPeseePrecedente(pesees, "2026-07-24")).toBeCloseTo(-0.4, 5);
+  });
+
+  test("retourne null s'il n'y a pas de pesée antérieure", () => {
+    expect(deltaDepuisPeseePrecedente(pesees, "2026-07-23")).toBeNull();
+  });
+
+  test("retourne null si aucune pesée n'existe à la date demandée", () => {
+    expect(deltaDepuisPeseePrecedente(pesees, "2026-07-25")).toBeNull();
   });
 });
 

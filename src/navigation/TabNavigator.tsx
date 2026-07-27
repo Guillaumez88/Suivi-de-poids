@@ -1,10 +1,11 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Home, CalendarDays, TrendingUp, Settings } from "lucide-react-native";
+import { Home, CalendarDays, Settings } from "lucide-react-native";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { MonthScreen } from "@/screens/MonthScreen";
 import { TrendsScreen } from "@/screens/TrendsScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
+import { IconeVague } from "@/components/icons";
 import { colors, iconStrokeWidth } from "@/theme/theme";
 import { TabParamList } from "./types";
 
@@ -33,7 +34,7 @@ export function TabNavigator() {
       <Tab.Screen
         name="Tendances"
         component={TrendsScreen}
-        options={{ tabBarIcon: ({ color }) => <TrendingUp color={color} strokeWidth={iconStrokeWidth} /> }}
+        options={{ tabBarIcon: ({ color }) => <IconeVague color={color} strokeWidth={iconStrokeWidth} size={23} /> }}
       />
       <Tab.Screen
         name="Reglages"

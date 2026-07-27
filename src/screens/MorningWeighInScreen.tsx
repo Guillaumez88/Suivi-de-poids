@@ -1,28 +1,44 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { Minus, Plus, ChevronDown } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
 import { creerPeseeMatinale, getPeseeDuJour } from "@/services/dataService";
 import { annulerRappelsDuJour } from "@/services/notifications";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Bouton } from "@/components/Button";
+import { VisageHumeur } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
-import { colors, fonts, space, radius } from "@/theme/theme";
+import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
 import { estDansFenetreMatinale } from "@/utils/businessRules";
 import { MensurationZone, ZONES_MENSURATION_LABELS } from "@/types/models";
 
-const VISAGES = ["😞", "😕", "😐", "🙂", "😄"];
+const PAS_POIDS = 0.1;
 
 function heureLocaleActuelle(): string {
   const d = new Date();
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
+/** Temps restant avant la fin de la fenêtre matinale, formaté "3h48". */
+function tempsRestant(fin: string): string {
+  const maintenant = new Date();
+  const [h, m] = fin.split(":").map(Number);
+  const finDate = new Date(maintenant);
+  finDate.setHours(h, m, 0, 0);
+  const minutesRestantes = Math.max(0, Math.round((finDate.getTime() - maintenant.getTime()) / 60000));
+  const heures = Math.floor(minutesRestantes / 60);
+  const minutes = minutesRestantes % 60;
+  return `${heures}h${minutes.toString().padStart(2, "0")}`;
+}
+
 export function MorningWeighInScreen() {
   const navigation = useNavigation();
-  const { utilisateur, rafraichir } = useAppData();
-  const [poids, setPoids] = useState("");
+  const { utilisateur, pesees, rafraichir } = useAppData();
+  const dernierPoids = pesees[pesees.length - 1]?.poidsKg;
+  const [poids, setPoids] = useState(dernierPoids ?? 70);
+  const [zoneOuverte, setZoneOuverte] = useState<MensurationZone | null>(null);
   const [mensurations, setMensurations] = useState<Partial<Record<MensurationZone, string>>>({});
   const [etatPsy, setEtatPsy] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [note, setNote] = useState("");
@@ -47,13 +63,14 @@ export function MorningWeighInScreen() {
     );
   }
 
+  const derniereValeurZone = (zone: MensurationZone): string => {
+    const derniere = [...pesees].reverse().find((p) => p.mensurations[zone] !== undefined);
+    return derniere ? `${derniere.mensurations[zone]}` : "—";
+  };
+
   async function onEnregistrer() {
     const uid = auth.currentUser?.uid;
-    const poidsKg = Number(poids.replace(",", "."));
-    if (!uid || !poidsKg) {
-      Alert.alert("Il manque le poids", "Indique ton poids du matin pour continuer.");
-      return;
-    }
+    if (!uid) return;
     const date = new Date().toISOString().slice(0, 10);
     const dejaFait = await getPeseeDuJour(uid, date);
     if (dejaFait) {
@@ -68,7 +85,7 @@ export function MorningWeighInScreen() {
       }
       await creerPeseeMatinale(uid, {
         date,
-        poidsKg,
+        poidsKg: Math.round(poids * 10) / 10,
         mensurations: mensurationsNombres,
         etatPsyScore: etatPsy,
         etatPsyNote: note || undefined,
@@ -83,64 +100,90 @@ export function MorningWeighInScreen() {
 
   return (
     <EcranConteneur>
-      <Text style={styles.titre}>Le poids du jour</Text>
-      <Text style={styles.texte}>Toujours en chiffres exacts ici, même si tu masques le poids ailleurs.</Text>
+      <View style={styles.entete}>
+        <Text style={styles.annuler} onPress={() => navigation.goBack()}>
+          Annuler
+        </Text>
+        {utilisateur && (
+          <View style={styles.badgeRestant}>
+            <Text style={styles.badgeRestantTexte}>encore {tempsRestant(utilisateur.fenetreMatinFin)}</Text>
+          </View>
+        )}
+      </View>
 
-      <TextInput
-        style={styles.champPoids}
-        placeholder="0,0"
-        placeholderTextColor={colors.neutral500}
-        keyboardType="decimal-pad"
-        value={poids}
-        onChangeText={setPoids}
-      />
-      <Text style={styles.unite}>{utilisateur?.unitePoids ?? "kg"}</Text>
+      <Text style={styles.titre}>Bonjour toi.{"\n"}On note le chiffre ?</Text>
+      <Text style={styles.texte}>Il ne veut rien dire tout seul — c'est la ligne des semaines qui parle.</Text>
+
+      <View style={styles.stepper}>
+        <Pressable style={styles.rondStepper} onPress={() => setPoids((p) => Math.round((p - PAS_POIDS) * 10) / 10)}>
+          <Minus size={24} color={colors.accent700} strokeWidth={3} />
+        </Pressable>
+        <View style={{ alignItems: "center" }}>
+          <Text style={styles.chiffrePoids}>{poids.toFixed(1)}</Text>
+          <Text style={styles.uniteStepper}>{(utilisateur?.unitePoids ?? "kg").toUpperCase()}</Text>
+        </View>
+        <Pressable
+          style={[styles.rondStepper, { backgroundColor: colors.accent }]}
+          onPress={() => setPoids((p) => Math.round((p + PAS_POIDS) * 10) / 10)}
+        >
+          <Plus size={24} color={colors.bg} strokeWidth={3} />
+        </Pressable>
+      </View>
 
       {(utilisateur?.zonesMensurationActives ?? []).length > 0 && (
-        <Carte style={{ marginTop: space[5] }}>
-          <Text style={styles.label}>Mensurations (optionnel)</Text>
-          {(utilisateur?.zonesMensurationActives ?? []).map((zone) => (
-            <View key={zone} style={styles.ligneMensuration}>
-              <Text style={styles.labelLigne}>{ZONES_MENSURATION_LABELS[zone]}</Text>
-              <TextInput
-                style={styles.champMensuration}
-                keyboardType="decimal-pad"
-                placeholder={utilisateur?.uniteLongueur ?? "cm"}
-                value={mensurations[zone] ?? ""}
-                onChangeText={(v) => setMensurations((m) => ({ ...m, [zone]: v }))}
-              />
-            </View>
-          ))}
-        </Carte>
+        <View style={{ marginTop: space[4] }}>
+          <Text style={styles.label}>Mensurations — optionnel</Text>
+          <View style={{ gap: space[2], marginTop: space[2] }}>
+            {(utilisateur?.zonesMensurationActives ?? []).map((zone) => (
+              <Carte key={zone}>
+                <Pressable
+                  style={styles.ligneMensuration}
+                  onPress={() => setZoneOuverte((z) => (z === zone ? null : zone))}
+                >
+                  <Text style={styles.labelLigne}>{ZONES_MENSURATION_LABELS[zone]}</Text>
+                  <View style={styles.ligneMensurationDroite}>
+                    <Text style={styles.valeurMensuration}>{derniereValeurZone(zone)}</Text>
+                    <ChevronDown size={18} color={colors.neutral700} strokeWidth={iconStrokeWidth} />
+                  </View>
+                </Pressable>
+                {zoneOuverte === zone && (
+                  <TextInput
+                    style={styles.champMensuration}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                    placeholder={utilisateur?.uniteLongueur ?? "cm"}
+                    value={mensurations[zone] ?? ""}
+                    onChangeText={(v) => setMensurations((m) => ({ ...m, [zone]: v }))}
+                  />
+                )}
+              </Carte>
+            ))}
+          </View>
+        </View>
       )}
 
-      <Carte style={{ marginTop: space[3] }}>
-        <Text style={styles.label}>Comment tu te sens ?</Text>
-        <View style={styles.visages}>
-          {VISAGES.map((v, i) => {
-            const valeur = (i + 1) as 1 | 2 | 3 | 4 | 5;
-            return (
-              <Pressable
-                key={v}
-                onPress={() => setEtatPsy(valeur)}
-                style={[styles.visage, etatPsy === valeur && styles.visageActif]}
-              >
-                <Text style={{ fontSize: 22 }}>{v}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <TextInput
-          style={styles.champNote}
-          placeholder="Un mot pour toi-même ?"
-          placeholderTextColor={colors.neutral600}
-          value={note}
-          onChangeText={setNote}
-        />
-      </Carte>
+      <Text style={[styles.label, { marginTop: space[5] }]}>Et dans la tête, ce matin ?</Text>
+      <View style={styles.visages}>
+        {([1, 2, 3, 4, 5] as const).map((niveau) => (
+          <Pressable
+            key={niveau}
+            onPress={() => setEtatPsy(niveau)}
+            style={[styles.visage, etatPsy === niveau && styles.visageActif]}
+          >
+            <VisageHumeur niveau={niveau} size={26} color={etatPsy === niveau ? colors.bg : colors.neutral700} />
+          </Pressable>
+        ))}
+      </View>
+      <TextInput
+        style={styles.champNote}
+        placeholder="Un mot pour toi-même ? (facultatif)"
+        placeholderTextColor={colors.neutral600}
+        value={note}
+        onChangeText={setNote}
+      />
 
       <Bouton
-        label={enCours ? "Enregistrement…" : "Enregistrer"}
+        label={enCours ? "Enregistrement…" : "C'est noté"}
         onPress={onEnregistrer}
         disabled={enCours}
         bloc
@@ -151,42 +194,58 @@ export function MorningWeighInScreen() {
 }
 
 const styles = StyleSheet.create({
-  titre: { fontFamily: fonts.heading, fontSize: 26, color: colors.text, marginTop: space[4] },
+  entete: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space[3] },
+  annuler: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.neutral700 },
+  badgeRestant: { backgroundColor: colors.accent2_100, borderRadius: radius.pill, paddingVertical: space[1], paddingHorizontal: space[3] },
+  badgeRestantTexte: { fontFamily: fonts.bodyBold, fontSize: 11.5, color: colors.accent2_800 },
+  titre: { fontFamily: fonts.heading, fontSize: 27, lineHeight: 31, color: colors.text, marginTop: space[3] },
   texte: { fontFamily: fonts.body, fontSize: 13.5, color: colors.neutral700, marginTop: space[2] },
-  champPoids: {
-    fontFamily: fonts.heading,
-    fontSize: 44,
-    color: colors.text,
-    marginTop: space[5],
-    textAlign: "center",
+  stepper: {
+    marginTop: space[4],
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: space[4],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  unite: { textAlign: "center", fontFamily: fonts.body, color: colors.neutral600 },
-  label: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.text, marginBottom: space[2] },
-  labelLigne: { fontFamily: fonts.body, fontSize: 14, color: colors.text },
-  ligneMensuration: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space[2] },
+  rondStepper: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chiffrePoids: { fontFamily: fonts.heading, fontSize: 52, color: colors.text, letterSpacing: -0.5 },
+  uniteStepper: { fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 1.5, color: colors.neutral600, marginTop: 2 },
+  label: { fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: colors.neutral600 },
+  labelLigne: { fontFamily: fonts.body, fontSize: 15, fontWeight: "600", color: colors.text },
+  ligneMensuration: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ligneMensurationDroite: { flexDirection: "row", alignItems: "center", gap: space[2] },
+  valeurMensuration: { fontFamily: fonts.body, fontSize: 13, color: colors.neutral600 },
   champMensuration: {
+    marginTop: space[2],
     backgroundColor: colors.bg,
     borderRadius: radius.pill,
     paddingVertical: space[1],
     paddingHorizontal: space[4],
     fontFamily: fonts.body,
     color: colors.text,
-    minWidth: 80,
-    textAlign: "center",
   },
-  visages: { flexDirection: "row", justifyContent: "space-between" },
+  visages: { flexDirection: "row", gap: space[2], marginTop: space[2] },
   visage: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
   },
-  visageActif: { backgroundColor: colors.accent200 },
+  visageActif: { backgroundColor: colors.accent },
   champNote: {
-    marginTop: space[4],
-    backgroundColor: colors.bg,
+    marginTop: space[3],
+    backgroundColor: colors.surface,
     borderRadius: radius.pill,
     paddingVertical: space[3],
     paddingHorizontal: space[5],
