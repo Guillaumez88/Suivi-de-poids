@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Suivi de poids",
+    "slug": "suivi-poids",
+    "scheme": "suivipoids",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.guillaumezagini.suivipoids",
+      "infoPlist": {
+        "UIBackgroundModes": []
+      }
+    },
+    "plugins": ["expo-notifications"]
+  }
+}
