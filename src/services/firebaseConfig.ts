@@ -16,12 +16,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * garder l'habitude propre — voir .gitignore : firebaseConfig.local.ts).
  */
 const firebaseConfig = {
-  apiKey: "REMPLACE_MOI",
-  authDomain: "REMPLACE_MOI.firebaseapp.com",
-  projectId: "REMPLACE_MOI",
-  storageBucket: "REMPLACE_MOI.appspot.com",
-  messagingSenderId: "REMPLACE_MOI",
-  appId: "REMPLACE_MOI",
+  apiKey: "AIzaSyBVEK44Ni477yXEPW8IHp0KN1eVTjGMrUA",
+  authDomain: "suivi-de-poids.firebaseapp.com",
+  projectId: "suivi-de-poids",
+  storageBucket: "suivi-de-poids.firebasestorage.app",
+  messagingSenderId: "357271601703",
+  appId: "1:357271601703:web:f4c0d36ef176e55a530402",
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
