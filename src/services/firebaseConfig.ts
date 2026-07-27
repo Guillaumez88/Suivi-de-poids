@@ -1,4 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
+// @ts-expect-error — getReactNativePersistence existe à l'exécution (Metro résout la
+// condition "react-native" du package @firebase/auth), mais le fichier de types que tsc
+// consulte pour "firebase/auth" ne le déclare pas (limitation connue du SDK Firebase JS).
 import { initializeAuth, getReactNativePersistence, getAuth, type Auth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
