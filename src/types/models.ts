@@ -34,6 +34,7 @@ export interface Utilisateur {
   afficherPoidsAbsolu: boolean; // défaut true
 
   objectifSeancesSemaine: number; // 0-7, défaut 3
+  objectifEauLitres: number; // défaut 2 (recommandation usuelle)
 
   creeLe: string; // ISO 8601
 }
@@ -93,6 +94,15 @@ export interface SeanceSport {
   dateHeure: string; // ISO 8601
   intensite: IntensiteSport;
   dureeMinutes: DureeSeanceSport;
+  creeLe: string;
+  modifieLe: string;
+}
+
+export interface ConsommationEau {
+  id: string;
+  utilisateurId: string;
+  dateHeure: string; // ISO 8601, plusieurs par jour
+  volumeMl: number; // 250 par défaut (un verre), gardé au cas où
   creeLe: string;
   modifieLe: string;
 }

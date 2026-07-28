@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ArrowDown, ArrowUp, Clock, Dumbbell } from "lucide-react-native";
+import { ArrowDown, ArrowUp, Clock, Dumbbell, GlassWater } from "lucide-react-native";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
 import { Carte } from "@/components/Card";
@@ -55,7 +55,7 @@ function depuisTexte(dateHeureISO: string): string {
 
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { utilisateur, pesees, passages, cheatmeals, grignotages, seancesSport } = useAppData();
+  const { utilisateur, pesees, passages, cheatmeals, grignotages, seancesSport, consommationsEau } = useAppData();
   const [periodeCourbe, setPeriodeCourbe] = useState<(typeof PERIODES_COURBE)[number]["valeur"]>(30);
 
   const aujourdhui = dateISOAujourdhui();
@@ -105,6 +105,17 @@ export function HomeScreen() {
       return date >= lundiSemaine && date <= dimancheSemaine;
     }).length;
   }, [seancesSport, lundiSemaine]);
+
+  const objectifEauBrut = utilisateur?.objectifEauLitres;
+  const objectifEau = Number.isFinite(objectifEauBrut) ? (objectifEauBrut as number) : 2;
+  const eauMlAujourdhui = useMemo(
+    () =>
+      consommationsEau
+        .filter((c) => estLeJour(c.dateHeure, aujourdhui))
+        .reduce((somme, c) => somme + c.volumeMl, 0),
+    [consommationsEau, aujourdhui]
+  );
+  const eauLitresAujourdhui = eauMlAujourdhui / 1000;
 
   const semaine = useMemo(() => {
     return construireSemaine(lundiSemaine, cheatmeals, grignotages, marqueurs).map((j, i) => ({
@@ -215,6 +226,23 @@ export function HomeScreen() {
         </View>
       </Carte>
 
+      <Carte style={{ marginTop: space[3] }}>
+        <View style={styles.enteteSport}>
+          <Text style={styles.sousTitreCarte}>Eau aujourd'hui</Text>
+          <Text style={styles.sportValeur}>
+            {eauLitresAujourdhui.toFixed(2).replace(".", ",")} / {objectifEau.toFixed(2).replace(".", ",")} L
+          </Text>
+        </View>
+        <View style={styles.pisteProgression}>
+          <View
+            style={[
+              styles.progression,
+              { width: `${objectifEau > 0 ? Math.min(100, (eauLitresAujourdhui / objectifEau) * 100) : 100}%` },
+            ]}
+          />
+        </View>
+      </Carte>
+
       <View style={styles.enteteSemaine}>
         <Text style={styles.sousTitreCarte}>Ta semaine</Text>
         <View style={styles.legendeSemaine}>
@@ -314,6 +342,13 @@ export function HomeScreen() {
             variante="secondary"
             style={styles.actionTuile}
             icone={<Dumbbell size={19} color={colors.accent700} strokeWidth={iconStrokeWidth} />}
+          />
+          <Bouton
+            label="Verre d'eau"
+            onPress={() => navigation.navigate("VerreEau")}
+            variante="secondary"
+            style={styles.actionTuile}
+            icone={<GlassWater size={19} color={colors.accent700} strokeWidth={iconStrokeWidth} />}
           />
         </View>
       </View>

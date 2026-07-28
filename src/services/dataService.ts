@@ -20,6 +20,7 @@ import type {
   Grignotage,
   ContextePeriode,
   SeanceSport,
+  ConsommationEau,
 } from "@/types/models";
 
 /**
@@ -65,6 +66,7 @@ export function utilisateurParDefaut(uid: string, email: string): Utilisateur {
     sexe: "non_precise",
     afficherPoidsAbsolu: true,
     objectifSeancesSemaine: 3,
+    objectifEauLitres: 2,
     creeLe: nowIso(),
   };
 }
@@ -231,6 +233,25 @@ export function creerSeanceSport(
 }
 
 export const supprimerSeanceSport = (uid: string, id: string) => supprimer(uid, "seancesSport", id);
+
+// ---------- Consommation d'eau ----------
+
+export async function getConsommationsEau(uid: string): Promise<ConsommationEau[]> {
+  const q = query(sousCollection(uid, "consommationsEau"), orderBy("dateHeure", "asc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as ConsommationEau);
+}
+
+export function creerConsommationEau(uid: string, volumeMl = 250) {
+  return creer<ConsommationEau>(uid, "consommationsEau", {
+    utilisateurId: uid,
+    dateHeure: nowIso(),
+    volumeMl,
+  });
+}
+
+export const supprimerConsommationEau = (uid: string, id: string) =>
+  supprimer(uid, "consommationsEau", id);
 
 // Note : `Timestamp` est ré-exporté au cas où un écran préfère stocker les
 // horodatages en Timestamp Firestore natif plutôt qu'en chaîne ISO ; ce

@@ -9,6 +9,7 @@ import { MorningWeighInScreen } from "@/screens/MorningWeighInScreen";
 import { ToiletEntryScreen } from "@/screens/ToiletEntryScreen";
 import { CheatmealScreen } from "@/screens/CheatmealScreen";
 import { SnackConfirmScreen } from "@/screens/SnackConfirmScreen";
+import { WaterConfirmScreen } from "@/screens/WaterConfirmScreen";
 import { ContextScreen } from "@/screens/ContextScreen";
 import { SportScreen } from "@/screens/SportScreen";
 import { DayDetailScreen } from "@/screens/DayDetailScreen";
@@ -54,6 +55,11 @@ export function RootNavigator() {
           <Stack.Screen
             name="Grignotage"
             component={SnackConfirmScreen}
+            options={{ presentation: "transparentModal", headerShown: false, animation: "fade" }}
+          />
+          <Stack.Screen
+            name="VerreEau"
+            component={WaterConfirmScreen}
             options={{ presentation: "transparentModal", headerShown: false, animation: "fade" }}
           />
         </>

@@ -92,8 +92,10 @@ export function Stepper({
   );
 }
 
+// Deux décimales pour couvrir aussi les pas de 0,25 (hydratation), sans
+// changer le résultat pour les pas de 0,1 (poids) ou 1 (sport) déjà en place.
 function arrondir(n: number): number {
-  return Math.round(n * 10) / 10;
+  return Math.round(n * 100) / 100;
 }
 
 const styles = StyleSheet.create({

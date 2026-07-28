@@ -5,6 +5,7 @@ import type {
   Grignotage,
   ContextePeriode,
   SeanceSport,
+  ConsommationEau,
 } from "@/types/models";
 
 /** Section 3.8 du cahier des charges : export CSV de toutes les entrées. */
@@ -16,6 +17,7 @@ interface Donnees {
   grignotages: Grignotage[];
   contextes: ContextePeriode[];
   seancesSport: SeanceSport[];
+  consommationsEau: ConsommationEau[];
 }
 
 function ligne(valeurs: (string | number | boolean | undefined)[]): string {
@@ -73,6 +75,13 @@ export function versCsv(d: Donnees): string {
   lignes.push(ligne(["date_heure", "intensite", "duree_minutes"]));
   for (const s of d.seancesSport) {
     lignes.push(ligne([s.dateHeure, s.intensite, s.dureeMinutes]));
+  }
+
+  lignes.push("");
+  lignes.push("=== Consommations d'eau ===");
+  lignes.push(ligne(["date_heure", "volume_ml"]));
+  for (const e of d.consommationsEau) {
+    lignes.push(ligne([e.dateHeure, e.volumeMl]));
   }
 
   return lignes.join("\n");

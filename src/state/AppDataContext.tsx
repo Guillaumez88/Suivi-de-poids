@@ -9,6 +9,7 @@ import {
   getGrignotages,
   getContextes,
   getSeancesSport,
+  getConsommationsEau,
 } from "@/services/dataService";
 import type {
   Utilisateur,
@@ -18,6 +19,7 @@ import type {
   Grignotage,
   ContextePeriode,
   SeanceSport,
+  ConsommationEau,
 } from "@/types/models";
 
 interface AppData {
@@ -29,6 +31,7 @@ interface AppData {
   grignotages: Grignotage[];
   contextes: ContextePeriode[];
   seancesSport: SeanceSport[];
+  consommationsEau: ConsommationEau[];
   chargement: boolean;
   rafraichir: () => Promise<void>;
 }
@@ -44,6 +47,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [grignotages, setGrignotages] = useState<Grignotage[]>([]);
   const [contextes, setContextes] = useState<ContextePeriode[]>([]);
   const [seancesSport, setSeancesSport] = useState<SeanceSport[]>([]);
+  const [consommationsEau, setConsommationsEau] = useState<ConsommationEau[]>([]);
   const [chargement, setChargement] = useState(true);
 
   const rafraichir = useCallback(async () => {
@@ -56,6 +60,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setGrignotages([]);
       setContextes([]);
       setSeancesSport([]);
+      setConsommationsEau([]);
       setChargement(false);
       return;
     }
@@ -65,7 +70,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // navigation — un rafraîchissement après une simple modification de
     // réglage ne doit jamais faire ça, sous peine de renvoyer l'utilisateur
     // sur le premier onglet à chaque enregistrement).
-    const [u, p, t, c, g, ctx, s] = await Promise.all([
+    const [u, p, t, c, g, ctx, s, eau] = await Promise.all([
       getUtilisateur(uid),
       getPesees(uid),
       getPassagesToilette(uid),
@@ -73,6 +78,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       getGrignotages(uid),
       getContextes(uid),
       getSeancesSport(uid),
+      getConsommationsEau(uid),
     ]);
     setUtilisateur(u);
     setPesees(p);
@@ -81,6 +87,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setGrignotages(g);
     setContextes(ctx);
     setSeancesSport(s);
+    setConsommationsEau(eau);
     setChargement(false);
   }, []);
 
@@ -103,6 +110,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         grignotages,
         contextes,
         seancesSport,
+        consommationsEau,
         chargement,
         rafraichir,
       }}

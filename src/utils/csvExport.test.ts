@@ -1,6 +1,14 @@
 import { versCsv } from "./csvExport";
 
-const VIDE = { pesees: [], passages: [], cheatmeals: [], grignotages: [], contextes: [], seancesSport: [] };
+const VIDE = {
+  pesees: [],
+  passages: [],
+  cheatmeals: [],
+  grignotages: [],
+  contextes: [],
+  seancesSport: [],
+  consommationsEau: [],
+};
 
 describe("versCsv (section 3.8)", () => {
   test("échappe les virgules, guillemets et retours à la ligne dans une note", () => {
@@ -48,5 +56,6 @@ describe("versCsv (section 3.8)", () => {
     const csv = versCsv(VIDE);
     expect(csv).toContain("=== Pesées matinales ===");
     expect(csv).toContain("=== Séances de sport ===");
+    expect(csv).toContain("=== Consommations d'eau ===");
   });
 });

@@ -42,7 +42,8 @@ const OPTIONS_UNITE_LONGUEUR: { valeur: UniteLongueur; label: string }[] = [
 const TOUTES_ZONES: MensurationZone[] = ["tour_de_taille", "hanches", "poitrine", "bras", "cuisses"];
 
 export function SettingsScreen() {
-  const { utilisateur, pesees, passages, cheatmeals, grignotages, contextes, seancesSport, rafraichir } = useAppData();
+  const { utilisateur, pesees, passages, cheatmeals, grignotages, contextes, seancesSport, consommationsEau, rafraichir } =
+    useAppData();
   const [enExport, setEnExport] = useState(false);
 
   if (!utilisateur) {
@@ -61,6 +62,9 @@ export function SettingsScreen() {
   const objectifSeancesSemaine = Number.isFinite(utilisateur.objectifSeancesSemaine)
     ? utilisateur.objectifSeancesSemaine
     : 3;
+  const objectifEauLitres = Number.isFinite(utilisateur.objectifEauLitres)
+    ? utilisateur.objectifEauLitres
+    : 2;
 
   async function majChamp(champ: Record<string, unknown>) {
     const uid = auth.currentUser?.uid;
@@ -72,7 +76,7 @@ export function SettingsScreen() {
   async function onExporterCsv() {
     setEnExport(true);
     try {
-      const csv = versCsv({ pesees, passages, cheatmeals, grignotages, contextes, seancesSport });
+      const csv = versCsv({ pesees, passages, cheatmeals, grignotages, contextes, seancesSport, consommationsEau });
       await Share.share({ message: csv, title: "Export suivi de poids (CSV)" });
     } finally {
       setEnExport(false);
@@ -229,6 +233,26 @@ export function SettingsScreen() {
             onChange={(v) => majChamp({ objectifSeancesSemaine: v })}
             min={0}
             max={7}
+          />
+        </View>
+      </Carte>
+
+      <SectionKicker label="Hydratation" />
+      <Carte>
+        <View style={styles.ligneSwitch}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Objectif quotidien</Text>
+            <Text style={styles.aide}>2 L par jour est la recommandation usuelle.</Text>
+          </View>
+          <Stepper
+            taille="compact"
+            repeter={false}
+            valeur={objectifEauLitres}
+            onChange={(v) => majChamp({ objectifEauLitres: v })}
+            pas={0.25}
+            min={0}
+            max={5}
+            formatValeur={(v) => `${v.toFixed(2).replace(".", ",")} L`}
           />
         </View>
       </Carte>

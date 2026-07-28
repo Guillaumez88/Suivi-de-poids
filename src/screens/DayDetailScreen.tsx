@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import { ChevronLeft, Dumbbell } from "lucide-react-native";
+import { ChevronLeft, Dumbbell, GlassWater } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
 import {
   supprimerPeseeMatinale,
@@ -9,6 +9,7 @@ import {
   supprimerCheatmeal,
   supprimerGrignotage,
   supprimerSeanceSport,
+  supprimerConsommationEau,
 } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
@@ -41,7 +42,8 @@ export function DayDetailScreen() {
   const navigation = useNavigation();
   const { params } = useRoute<Route>();
   const { date } = params;
-  const { pesees, passages, cheatmeals, grignotages, contextes, seancesSport, rafraichir } = useAppData();
+  const { pesees, passages, cheatmeals, grignotages, contextes, seancesSport, consommationsEau, rafraichir } =
+    useAppData();
 
   const uid = auth.currentUser?.uid;
   const pesee = pesees.find((p) => p.date === date);
@@ -50,6 +52,7 @@ export function DayDetailScreen() {
   const grignotagesJour = grignotages.filter((g) => g.dateHeure.startsWith(date));
   const contextesJour = contextes.filter((c) => c.dateDebut <= date && (!c.dateFin || c.dateFin >= date));
   const seancesJour = seancesSport.filter((s) => s.dateHeure.startsWith(date));
+  const eauJour = consommationsEau.filter((e) => e.dateHeure.startsWith(date));
 
   const marqueurDuJour = useMemo(() => {
     if (!pesee) return null;
@@ -69,7 +72,8 @@ export function DayDetailScreen() {
     passagesJour.length > 0 ||
     cheatmealsJour.length > 0 ||
     grignotagesJour.length > 0 ||
-    seancesJour.length > 0;
+    seancesJour.length > 0 ||
+    eauJour.length > 0;
 
   return (
     <EcranConteneur>
@@ -207,6 +211,23 @@ export function DayDetailScreen() {
           </View>
           {uid && (
             <Text style={styles.supprimer} onPress={() => supprimer(() => supprimerSeanceSport(uid, s.id))}>
+              Supprimer
+            </Text>
+          )}
+        </Carte>
+      ))}
+
+      {eauJour.map((e) => (
+        <Carte key={e.id} style={{ marginTop: space[3], flexDirection: "row", alignItems: "center", gap: space[3] }}>
+          <View style={styles.puceNeutre}>
+            <GlassWater size={20} color={colors.accent700} strokeWidth={iconStrokeWidth} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Verre d'eau, {e.volumeMl} ml</Text>
+            <Text style={styles.noteTexte}>{heureCourte(e.dateHeure)}</Text>
+          </View>
+          {uid && (
+            <Text style={styles.supprimer} onPress={() => supprimer(() => supprimerConsommationEau(uid, e.id))}>
               Supprimer
             </Text>
           )}
