@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Utilisateur } from "@/types/models";
@@ -20,6 +21,13 @@ import { dateISOAujourdhui, rappelDoitEtreEnvoye } from "@/utils/businessRules";
  * donc appeler `programmerRappelsDuJour` à chaque ouverture de l'app (et
  * idéalement via une tâche de fond quotidienne) pour que le lendemain
  * soit toujours couvert.
+ *
+ * Sur web, ce mécanisme de programmation locale n'existe pas (pas
+ * d'équivalent fiable de "notification programmée qui se déclenche même
+ * app fermée" dans un navigateur) : les fonctions ci-dessous deviennent des
+ * no-op sur cette plateforme, et les rappels sont pris en charge côté web
+ * par le push Firebase Cloud Messaging (voir services/pushWeb.ts) déclenché
+ * par une tâche planifiée côté serveur plutôt que programmé localement.
  */
 
 const CLE_STOCKAGE = "rappels_programmes_par_date";
@@ -35,6 +43,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function demanderPermissionsNotifications(): Promise<boolean> {
+  if (Platform.OS === "web") return false;
   const { status: statutActuel } = await Notifications.getPermissionsAsync();
   if (statutActuel === "granted") return true;
   const { status } = await Notifications.requestPermissionsAsync();
@@ -77,6 +86,7 @@ export async function programmerRappelsDuJour(
   utilisateur: Pick<Utilisateur, "heureRappel1" | "heureRappel2">,
   formulaireDejaRempliAujourdhui: boolean
 ): Promise<void> {
+  if (Platform.OS === "web") return;
   const aujourdhui = dateISOAujourdhui();
   const existant = await lireRappelsStockes();
 
@@ -135,6 +145,7 @@ async function annulerRappel(id?: string): Promise<void> {
  * annuler tout rappel du jour encore en attente.
  */
 export async function annulerRappelsDuJour(): Promise<void> {
+  if (Platform.OS === "web") return;
   const existant = await lireRappelsStockes();
   if (!existant || existant.date !== dateISOAujourdhui()) return;
   await annulerRappel(existant.idRappel1);

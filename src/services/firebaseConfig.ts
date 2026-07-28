@@ -1,8 +1,9 @@
+import { Platform } from "react-native";
 import { initializeApp, getApps, getApp } from "firebase/app";
 // @ts-expect-error — getReactNativePersistence existe à l'exécution (Metro résout la
 // condition "react-native" du package @firebase/auth), mais le fichier de types que tsc
 // consulte pour "firebase/auth" ne le déclare pas (limitation connue du SDK Firebase JS).
-import { initializeAuth, getReactNativePersistence, getAuth, type Auth } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence, browserLocalPersistence, getAuth, type Auth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -26,12 +27,15 @@ const firebaseConfig = {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// Persistance de la session Auth entre lancements de l'app (AsyncStorage),
-// nécessaire en React Native (pas de localStorage natif).
+// Persistance de la session Auth entre lancements de l'app : AsyncStorage en
+// React Native (pas de localStorage natif), stockage navigateur sur web (la
+// persistance RN fonctionnerait aussi via le shim localStorage d'AsyncStorage,
+// mais browserLocalPersistence est le mécanisme natif du SDK web, avec la
+// synchronisation entre onglets en plus).
 let auth: Auth;
 try {
   auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
+    persistence: Platform.OS === "web" ? browserLocalPersistence : getReactNativePersistence(AsyncStorage),
   });
 } catch {
   // initializeAuth ne peut être appelé qu'une fois (Fast Refresh en dev) ;

@@ -21,6 +21,7 @@ import type {
   ContextePeriode,
   SeanceSport,
   ConsommationEau,
+  TokenPush,
 } from "@/types/models";
 
 /**
@@ -252,6 +253,14 @@ export function creerConsommationEau(uid: string, volumeMl = 250) {
 
 export const supprimerConsommationEau = (uid: string, id: string) =>
   supprimer(uid, "consommationsEau", id);
+
+// ---------- Token push (rappels web, section notifications) ----------
+
+// Id du document = le token lui-même : un ré-enregistrement du même appareil
+// écrase simplement l'entrée existante au lieu de créer un doublon.
+export function enregistrerTokenPush(uid: string, token: string) {
+  return creer<TokenPush>(uid, "tokensPush", { utilisateurId: uid, token }, token);
+}
 
 // Note : `Timestamp` est ré-exporté au cas où un écran préfère stocker les
 // horodatages en Timestamp Firestore natif plutôt qu'en chaîne ISO ; ce

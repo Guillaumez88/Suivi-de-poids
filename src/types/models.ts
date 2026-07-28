@@ -36,6 +36,11 @@ export interface Utilisateur {
   objectifSeancesSemaine: number; // 0-7, défaut 3
   objectifEauLitres: number; // défaut 2 (recommandation usuelle)
 
+  // Écrit uniquement par scripts/send-reminders.js (jamais côté client) :
+  // suivi journalier des rappels web déjà envoyés, pour ne pas les renvoyer
+  // à chaque exécution du cron GitHub Actions tant que le jour ne change pas.
+  rappelsEnvoyes?: { date: string; rappel1: boolean; rappel2: boolean };
+
   creeLe: string; // ISO 8601
 }
 
@@ -94,6 +99,14 @@ export interface SeanceSport {
   dateHeure: string; // ISO 8601
   intensite: IntensiteSport;
   dureeMinutes: DureeSeanceSport;
+  creeLe: string;
+  modifieLe: string;
+}
+
+export interface TokenPush {
+  id: string; // = le token FCM lui-même (une entrée par appareil/navigateur)
+  utilisateurId: string;
+  token: string;
   creeLe: string;
   modifieLe: string;
 }

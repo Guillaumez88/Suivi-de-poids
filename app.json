@@ -6,13 +6,24 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "platforms": ["ios"],
+    "icon": "./assets/icon.png",
+    "platforms": ["ios", "web"],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.guillaumezagini.suivipoids",
       "infoPlist": {
         "UIBackgroundModes": []
       }
+    },
+    "web": {
+      "name": "Suivi de poids",
+      "shortName": "Suivi poids",
+      "themeColor": "#c67139",
+      "backgroundColor": "#f5ead8",
+      "display": "standalone",
+      "lang": "fr",
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": ["expo-notifications"]
   }

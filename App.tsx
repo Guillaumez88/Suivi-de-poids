@@ -13,6 +13,7 @@ import { View, ActivityIndicator } from "react-native";
 import { AppDataProvider, useAppData } from "@/state/AppDataContext";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { programmerRappelsDuJour } from "@/services/notifications";
+import { activerPushWeb } from "@/services/pushWeb";
 import { dateISOAujourdhui, estLeJour } from "@/utils/businessRules";
 import { colors } from "@/theme/theme";
 
@@ -27,6 +28,7 @@ function ContenuApp() {
       { heureRappel1: utilisateur.heureRappel1, heureRappel2: utilisateur.heureRappel2 },
       dejaFait
     );
+    activerPushWeb(utilisateur.id);
   }, [utilisateur, pesees]);
 
   return <RootNavigator />;
