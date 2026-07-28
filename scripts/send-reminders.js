@@ -8,14 +8,20 @@
 // continu : chaque exécution vérifie, pour chaque utilisateur, si l'heure
 // configurée (heureRappel1/heureRappel2, fuseau Europe/Paris) vient de
 // passer et si le rappel correspondant n'a pas déjà été envoyé aujourd'hui.
-const admin = require("firebase-admin");
+// firebase-admin v13+ : l'ancienne API "namespace" (admin.credential.cert,
+// admin.firestore(), admin.messaging()) n'existe plus sur l'export par
+// défaut — il faut les sous-modules dédiés ci-dessous.
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 
 const TOLERANCE_MINUTES = 15; // couvre le délai possible d'un cron GitHub Actions
 const FUSEAU = "Europe/Paris";
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
+const app = initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore(app);
+const messaging = getMessaging(app);
 
 function heureLocale(date) {
   const parts = new Intl.DateTimeFormat("fr-FR", {
@@ -47,7 +53,7 @@ async function envoyerAuxTokens(uid, titre, corps) {
   const tokensSnap = await db.collection("users").doc(uid).collection("tokensPush").get();
   for (const doc of tokensSnap.docs) {
     try {
-      await admin.messaging().send({
+      await messaging.send({
         token: doc.data().token,
         notification: { title: titre, body: corps },
       });
