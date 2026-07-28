@@ -9,7 +9,9 @@ import {
   query,
   where,
   orderBy,
+  writeBatch,
   Timestamp,
+  type DocumentReference,
 } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import type {
@@ -108,6 +110,46 @@ async function modifier(
 
 async function supprimer(uid: string, nomCollection: string, id: string): Promise<void> {
   await deleteDoc(doc(sousCollection(uid, nomCollection), id));
+}
+
+// Sous-collections existantes de users/{uid} — à tenir à jour si une
+// nouvelle est ajoutée (utilisée par supprimerToutesLesDonnees ci-dessous).
+const TOUTES_LES_SOUS_COLLECTIONS = [
+  "pesees",
+  "passagesToilette",
+  "cheatmeals",
+  "grignotages",
+  "contextes",
+  "seancesSport",
+  "consommationsEau",
+  "tokensPush",
+];
+
+const TAILLE_LOT_MAX = 450; // marge sous la limite de 500 opérations par batch Firestore
+
+// Suppression de compte (section 3.10) : Firebase Auth ne supprime pas les
+// données Firestore associées. À appeler avant `deleteUser`, tant que
+// l'utilisateur est encore authentifié (les règles Firestore exigent
+// request.auth.uid == uid, qui ne serait plus vrai une fois le compte Auth
+// supprimé). Pas de Cloud Function ici : ça imposerait de passer le projet
+// au forfait payant Blaze, écarté pour ce projet (cf. les rappels, qui
+// utilisent une GitHub Action plutôt que Cloud Scheduler pour la même
+// raison) — la suppression se fait donc entièrement côté client.
+export async function supprimerToutesLesDonnees(uid: string): Promise<void> {
+  const refs: DocumentReference[] = [];
+  for (const nomCollection of TOUTES_LES_SOUS_COLLECTIONS) {
+    const snap = await getDocs(sousCollection(uid, nomCollection));
+    snap.forEach((d) => refs.push(d.ref));
+  }
+  refs.push(doc(db, "users", uid));
+
+  for (let i = 0; i < refs.length; i += TAILLE_LOT_MAX) {
+    const lot = writeBatch(db);
+    for (const ref of refs.slice(i, i + TAILLE_LOT_MAX)) {
+      lot.delete(ref);
+    }
+    await lot.commit();
+  }
 }
 
 // ---------- Pesée matinale (section 3.1 : une par jour) ----------

@@ -3,7 +3,7 @@ import { View, Text, Switch, TextInput, Alert, StyleSheet, Share, Pressable } fr
 import { signOut, deleteUser } from "firebase/auth";
 import { Download, User as IconeCompte, Trash2 } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
-import { creerOuMettreAJourUtilisateur } from "@/services/dataService";
+import { creerOuMettreAJourUtilisateur, supprimerToutesLesDonnees } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Bouton } from "@/components/Button";
@@ -95,10 +95,13 @@ export function SettingsScreen() {
           onPress: async () => {
             try {
               const u = auth.currentUser;
-              if (u) await deleteUser(u);
-              // Note : pour supprimer aussi les sous-collections Firestore de
-              // l'utilisateur, prévoir une Cloud Function déclenchée sur la
-              // suppression du compte Auth (non incluse dans ce scaffold).
+              if (u) {
+                // Ordre important : supprimer les données Firestore tant que
+                // l'utilisateur est encore authentifié (les règles exigent
+                // request.auth.uid == uid), puis seulement le compte Auth.
+                await supprimerToutesLesDonnees(u.uid);
+                await deleteUser(u);
+              }
             } catch (e) {
               // Cas fréquent : Firebase exige une reconnexion récente pour
               // une action sensible comme la suppression de compte.
