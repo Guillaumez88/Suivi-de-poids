@@ -1,9 +1,8 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Dumbbell } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
-import { Dumbbell } from "lucide-react-native";
 import {
   supprimerPeseeMatinale,
   supprimerPassageToilette,
@@ -14,6 +13,7 @@ import {
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Etiquette } from "@/components/Tag";
+import { SectionKicker } from "@/components/SectionKicker";
 import { IconeBristol, IconeNiveauExtra, IconeGrignotage, VisageHumeur, LABELS_HUMEUR } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
@@ -94,7 +94,7 @@ export function DayDetailScreen() {
 
       {pesee && (
         <Carte style={{ marginTop: space[4] }}>
-          <Text style={styles.kicker}>Pesée · {heureCourte(pesee.creeLe)}</Text>
+          <SectionKicker label={`Pesée · ${heureCourte(pesee.creeLe)}`} style={styles.kickerCarte} />
           <View style={styles.ligneValeurPoids}>
             <Text style={styles.valeurPoids}>
               {pesee.poidsKg}
@@ -135,7 +135,10 @@ export function DayDetailScreen() {
 
       {passagesJour.length > 0 && (
         <Carte style={{ marginTop: space[3] }}>
-          <Text style={styles.kicker}>Transit · {passagesJour.length} passage{passagesJour.length > 1 ? "s" : ""}</Text>
+          <SectionKicker
+            label={`Transit · ${passagesJour.length} passage${passagesJour.length > 1 ? "s" : ""}`}
+            style={styles.kickerCarte}
+          />
           <View style={{ gap: space[2], marginTop: space[2] }}>
             {passagesJour.map((p) => (
               <View key={p.id} style={styles.rangeeTransit}>
@@ -229,7 +232,7 @@ const styles = StyleSheet.create({
   enteteTitre: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: space[3] },
   titre: { fontFamily: fonts.heading, fontSize: 27, color: colors.text },
   sousTitreDate: { fontFamily: fonts.body, fontSize: 13.5, color: colors.neutral700, marginTop: 3 },
-  kicker: { fontFamily: fonts.bodyBold, fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: colors.neutral600 },
+  kickerCarte: { marginTop: 0, marginBottom: 0 },
   ligneValeurPoids: { flexDirection: "row", alignItems: "baseline", gap: space[3], marginTop: space[2] },
   valeurPoids: { fontFamily: fonts.heading, fontSize: 38, color: colors.text },
   unitePoids: { fontFamily: fonts.body, fontSize: 17 },

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { auth } from "@/services/firebaseConfig";
 import { creerOuMettreAJourUtilisateur } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
 import { Carte } from "@/components/Card";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { colors, fonts, space, radius } from "@/theme/theme";
 import { OnboardingStackParamList } from "@/navigation/types";
 import {
@@ -27,32 +28,6 @@ const OPTIONS_SEXE: { valeur: Sexe; label: string }[] = [
   { valeur: "non_precise", label: "Non précisé" },
 ];
 
-function ChoixSegmente<T extends string>({
-  options,
-  valeur,
-  onChange,
-}: {
-  options: { valeur: T; label: string }[];
-  valeur: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <View style={styles.segments}>
-      {options.map((o) => (
-        <Pressable
-          key={o.valeur}
-          onPress={() => onChange(o.valeur)}
-          style={[styles.segment, valeur === o.valeur && styles.segmentActif]}
-        >
-          <Text style={[styles.segmentTexte, valeur === o.valeur && styles.segmentTexteActif]}>
-            {o.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 export function ProfilScreen({ navigation }: Props) {
   const [unitePoids, setUnitePoids] = useState<UnitePoids>("kg");
   const [uniteLongueur, setUniteLongueur] = useState<UniteLongueur>("cm");
@@ -67,13 +42,18 @@ export function ProfilScreen({ navigation }: Props) {
   async function onContinuer() {
     const uid = auth.currentUser?.uid;
     if (uid) {
-      await creerOuMettreAJourUtilisateur(uid, {
-        unitePoids,
-        uniteLongueur,
-        sexe,
-        tailleCm: tailleCm ? Number(tailleCm) : undefined,
-        zonesMensurationActives: zones,
-      });
+      try {
+        await creerOuMettreAJourUtilisateur(uid, {
+          unitePoids,
+          uniteLongueur,
+          sexe,
+          ...(tailleCm ? { tailleCm: Number(tailleCm) } : {}),
+          zonesMensurationActives: zones,
+        });
+      } catch (e) {
+        Alert.alert("Ça n'a pas marché", (e as Error).message ?? "Erreur inconnue.");
+        return;
+      }
     }
     navigation.navigate("Rituel");
   }
@@ -86,20 +66,21 @@ export function ProfilScreen({ navigation }: Props) {
 
       <Carte style={{ marginTop: space[5] }}>
         <Text style={styles.label}>Le poids</Text>
-        <ChoixSegmente
+        <SegmentedControl
           options={[
             { valeur: "kg", label: "kilos" },
             { valeur: "lb", label: "livres" },
           ]}
           valeur={unitePoids}
           onChange={setUnitePoids}
+          fondInactif={colors.bg}
         />
 
         <Text style={[styles.label, { marginTop: space[4] }]}>Ton sexe</Text>
         <Text style={styles.aide}>
           Uniquement pour situer l'IMC — « Non précisé » ne change rien au reste de l'app.
         </Text>
-        <ChoixSegmente options={OPTIONS_SEXE} valeur={sexe} onChange={setSexe} />
+        <SegmentedControl options={OPTIONS_SEXE} valeur={sexe} onChange={setSexe} fondInactif={colors.bg} />
 
         <Text style={[styles.label, { marginTop: space[4] }]}>Ta taille</Text>
         <TextInput
@@ -112,13 +93,14 @@ export function ProfilScreen({ navigation }: Props) {
         />
 
         <Text style={[styles.label, { marginTop: space[4] }]}>Les mensurations</Text>
-        <ChoixSegmente
+        <SegmentedControl
           options={[
             { valeur: "cm", label: "cm" },
             { valeur: "in", label: "pouces" },
           ]}
           valeur={uniteLongueur}
           onChange={setUniteLongueur}
+          fondInactif={colors.bg}
         />
       </Carte>
 
@@ -156,17 +138,6 @@ const styles = StyleSheet.create({
   sousTitre: { fontFamily: fonts.body, fontSize: 14, color: colors.neutral700, marginTop: space[2] },
   label: { fontFamily: fonts.bodyBold, fontSize: 14.5, color: colors.text, marginBottom: space[2] },
   aide: { fontFamily: fonts.body, fontSize: 12.5, color: colors.neutral700, marginBottom: space[2] },
-  segments: { flexDirection: "row", gap: space[2] },
-  segment: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: space[3],
-    borderRadius: radius.pill,
-    backgroundColor: colors.bg,
-  },
-  segmentActif: { backgroundColor: colors.accent },
-  segmentTexte: { fontFamily: fonts.bodyMedium, fontSize: 14.5, color: colors.neutral700 },
-  segmentTexteActif: { fontFamily: fonts.heading, color: colors.bg },
   champTaille: {
     backgroundColor: colors.bg,
     borderRadius: radius.pill,

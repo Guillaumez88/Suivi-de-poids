@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Plus, Droplet } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
@@ -10,6 +10,7 @@ import { IconeVoyage, IconeMaladie } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
 import { TypeContexte } from "@/types/models";
+import { dateISOAujourdhui } from "@/utils/businessRules";
 
 const TYPES: { valeur: TypeContexte; label: string; icone: (couleur: string) => React.ReactNode }[] = [
   { valeur: "voyage", label: "Voyage", icone: (c) => <IconeVoyage size={26} color={c} /> },
@@ -17,10 +18,6 @@ const TYPES: { valeur: TypeContexte; label: string; icone: (couleur: string) => 
   { valeur: "maladie", label: "Maladie", icone: (c) => <IconeMaladie size={26} color={c} /> },
   { valeur: "autre", label: "Autre chose", icone: (c) => <Plus size={26} color={c} strokeWidth={iconStrokeWidth} /> },
 ];
-
-function dateISOAujourdhui(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function ContextScreen() {
   const navigation = useNavigation();
@@ -39,11 +36,13 @@ export function ContextScreen() {
       await creerContexte(uid, {
         type,
         dateDebut,
-        dateFin: dateFin || undefined,
-        note: note || undefined,
+        ...(dateFin ? { dateFin } : {}),
+        ...(note ? { note } : {}),
       });
       await rafraichir();
       navigation.goBack();
+    } catch (e) {
+      Alert.alert("Ça n'a pas marché", (e as Error).message ?? "Erreur inconnue.");
     } finally {
       setEnCours(false);
     }

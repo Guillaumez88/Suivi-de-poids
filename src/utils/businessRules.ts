@@ -17,6 +17,16 @@ export interface MarqueurCalendrier {
   marqueur: MarqueurKilo;
 }
 
+/** Date du jour au format "YYYY-MM-DD", dans le fuseau local de l'appareil. */
+export function dateISOAujourdhui(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Un horodatage ISO (dateHeure) tombe-t-il le jour `dateJour` ("YYYY-MM-DD") ? */
+export function estLeJour(dateHeureISO: string, dateJour: string): boolean {
+  return dateHeureISO.slice(0, 10) === dateJour;
+}
+
 /** Section 5.2 — le "palier" est la partie entière du poids. */
 export function palierDeKilo(poidsKg: number): number {
   return Math.floor(poidsKg);
@@ -207,4 +217,99 @@ export function estDansFenetreMatinale(
  */
 export function rappelDoitEtreEnvoye(formulaireDejaRempliAujourdhui: boolean): boolean {
   return !formulaireDejaRempliAujourdhui;
+}
+
+export interface JourMois {
+  date: string;
+  numero: number;
+  cheatmeal: boolean;
+  grignotage: boolean;
+  sport: boolean;
+  marqueur: MarqueurKilo;
+}
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+/**
+ * Vue Mois — grille d'un mois donné (0-11), avec cases vides en tête pour
+ * aligner le 1er du mois sur son jour de semaine (Lundi -> Dimanche). Les
+ * ensembles `datesAvec*` sont pré-indexés par l'appelant (plutôt que des
+ * tableaux bruts) pour rester en O(jours + entrées) même après plusieurs
+ * années de données accumulées.
+ */
+export function construireJoursMois(
+  annee: number,
+  mois: number,
+  datesAvecCheatmeal: ReadonlySet<string>,
+  datesAvecGrignotage: ReadonlySet<string>,
+  datesAvecSport: ReadonlySet<string>,
+  marqueursParDate: ReadonlyMap<string, MarqueurKilo>
+): (JourMois | null)[] {
+  const premierJour = new Date(annee, mois, 1);
+  const nbJours = new Date(annee, mois + 1, 0).getDate();
+  const decalage = (premierJour.getDay() + 6) % 7;
+
+  const jours: (JourMois | null)[] = new Array(decalage).fill(null);
+  for (let jour = 1; jour <= nbJours; jour++) {
+    const date = `${annee}-${pad2(mois + 1)}-${pad2(jour)}`;
+    jours.push({
+      date,
+      numero: jour,
+      cheatmeal: datesAvecCheatmeal.has(date),
+      grignotage: datesAvecGrignotage.has(date),
+      sport: datesAvecSport.has(date),
+      marqueur: marqueursParDate.get(date) ?? null,
+    });
+  }
+  // Complète la dernière semaine à 7 cases : sans ça, la rangée finale n'a
+  // que quelques cellules qui s'étirent (flex:1) pour combler la largeur de
+  // la rangée et paraissent plus grandes que les autres à l'affichage.
+  while (jours.length % 7 !== 0) jours.push(null);
+
+  return jours;
+}
+
+/** Découpe un tableau (typiquement `construireJoursMois`) en groupes de `taille`. */
+export function decouperEnGroupes<T>(elements: T[], taille: number): T[][] {
+  const groupes: T[][] = [];
+  for (let i = 0; i < elements.length; i += taille) {
+    groupes.push(elements.slice(i, i + taille));
+  }
+  return groupes;
+}
+
+export interface JourSemaine {
+  date: string;
+  aUnExtra: boolean;
+  aUnGrignotage: boolean;
+  marqueurJour: MarqueurKilo;
+}
+
+interface EvenementDate {
+  dateHeure: string;
+}
+
+/**
+ * Accueil — les 7 jours de la semaine (Lundi -> Dimanche) contenant
+ * `lundi`, avec les marqueurs du jour (extra, grignotage, kilo perdu/gagné).
+ * La mise en forme (lettre du jour, "aujourd'hui" en surbrillance, etc.)
+ * reste dans l'écran : ce n'est pas une règle métier.
+ */
+export function construireSemaine(
+  lundi: string,
+  cheatmeals: EvenementDate[],
+  grignotages: EvenementDate[],
+  marqueurs: MarqueurCalendrier[]
+): JourSemaine[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = ajouterJours(lundi, i);
+    return {
+      date,
+      aUnExtra: cheatmeals.some((c) => estLeJour(c.dateHeure, date)),
+      aUnGrignotage: grignotages.some((g) => estLeJour(g.dateHeure, date)),
+      marqueurJour: marqueurs.find((m) => m.date === date)?.marqueur ?? null,
+    };
+  });
 }

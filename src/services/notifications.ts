@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Utilisateur } from "@/types/models";
+import { dateISOAujourdhui, rappelDoitEtreEnvoye } from "@/utils/businessRules";
 
 /**
  * Rappels quotidiens — sections 3.5 et 5.1 du cahier des charges.
@@ -40,10 +41,6 @@ export async function demanderPermissionsNotifications(): Promise<boolean> {
   return status === "granted";
 }
 
-function dateAujourdhui(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function prochaineOccurrence(heureHHmm: string): Date {
   const [h, m] = heureHHmm.split(":").map(Number);
   const maintenant = new Date();
@@ -80,7 +77,7 @@ export async function programmerRappelsDuJour(
   utilisateur: Pick<Utilisateur, "heureRappel1" | "heureRappel2">,
   formulaireDejaRempliAujourdhui: boolean
 ): Promise<void> {
-  const aujourdhui = dateAujourdhui();
+  const aujourdhui = dateISOAujourdhui();
   const existant = await lireRappelsStockes();
 
   // Déjà programmés pour aujourd'hui : rien à refaire.
@@ -92,7 +89,7 @@ export async function programmerRappelsDuJour(
     await annulerRappel(existant.idRappel2);
   }
 
-  if (formulaireDejaRempliAujourdhui) {
+  if (!rappelDoitEtreEnvoye(formulaireDejaRempliAujourdhui)) {
     await ecrireRappelsStockes({ date: aujourdhui });
     return;
   }
@@ -139,7 +136,7 @@ async function annulerRappel(id?: string): Promise<void> {
  */
 export async function annulerRappelsDuJour(): Promise<void> {
   const existant = await lireRappelsStockes();
-  if (!existant || existant.date !== dateAujourdhui()) return;
+  if (!existant || existant.date !== dateISOAujourdhui()) return;
   await annulerRappel(existant.idRappel1);
   await annulerRappel(existant.idRappel2);
   await ecrireRappelsStockes({ date: existant.date });

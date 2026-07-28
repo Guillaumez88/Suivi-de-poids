@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Minus, Plus, ChevronDown } from "lucide-react-native";
+import { ChevronDown } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
 import { creerPeseeMatinale, getPeseeDuJour } from "@/services/dataService";
 import { annulerRappelsDuJour } from "@/services/notifications";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Bouton } from "@/components/Button";
+import { Stepper } from "@/components/Stepper";
 import { VisageHumeur } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
@@ -33,34 +34,6 @@ function tempsRestant(fin: string): string {
   return `${heures}h${minutes.toString().padStart(2, "0")}`;
 }
 
-const DELAI_AVANT_REPETITION_MS = 400;
-const INTERVALLE_REPETITION_MS = 80;
-
-/** Incrémente au tap, puis répète en accéléré tant que l'appui est maintenu. */
-function useAppuiRepete(action: () => void) {
-  const delai = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const intervalle = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function arreter() {
-    if (delai.current) clearTimeout(delai.current);
-    if (intervalle.current) clearInterval(intervalle.current);
-    delai.current = null;
-    intervalle.current = null;
-  }
-
-  useEffect(() => arreter, []);
-
-  return {
-    onPressIn: () => {
-      action();
-      delai.current = setTimeout(() => {
-        intervalle.current = setInterval(action, INTERVALLE_REPETITION_MS);
-      }, DELAI_AVANT_REPETITION_MS);
-    },
-    onPressOut: arreter,
-  };
-}
-
 export function MorningWeighInScreen() {
   const navigation = useNavigation();
   const { utilisateur, pesees, rafraichir } = useAppData();
@@ -71,9 +44,6 @@ export function MorningWeighInScreen() {
   const [etatPsy, setEtatPsy] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [note, setNote] = useState("");
   const [enCours, setEnCours] = useState(false);
-
-  const appuiMoins = useAppuiRepete(() => setPoids((p) => Math.round((p - PAS_POIDS) * 10) / 10));
-  const appuiPlus = useAppuiRepete(() => setPoids((p) => Math.round((p + PAS_POIDS) * 10) / 10));
 
   const dansLaFenetre = utilisateur
     ? estDansFenetreMatinale(heureLocaleActuelle(), utilisateur.fenetreMatinDebut, utilisateur.fenetreMatinFin)
@@ -101,15 +71,18 @@ export function MorningWeighInScreen() {
 
   async function onEnregistrer() {
     const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    const date = new Date().toISOString().slice(0, 10);
-    const dejaFait = await getPeseeDuJour(uid, date);
-    if (dejaFait) {
-      Alert.alert("Déjà noté", "Tu as déjà enregistré ta pesée de ce matin.");
-      return;
-    }
+    if (!uid || enCours) return;
+    // Désactivé avant tout await : un double-tap ne doit pas pouvoir lancer
+    // deux enregistrements concurrents (la vérification "déjà fait" qui suit
+    // est asynchrone, donc insuffisante seule contre un appui rapide double).
     setEnCours(true);
     try {
+      const date = new Date().toISOString().slice(0, 10);
+      const dejaFait = await getPeseeDuJour(uid, date);
+      if (dejaFait) {
+        Alert.alert("Déjà noté", "Tu as déjà enregistré ta pesée de ce matin.");
+        return;
+      }
       const mensurationsNombres: Partial<Record<MensurationZone, number>> = {};
       for (const [zone, valeur] of Object.entries(mensurations)) {
         if (valeur) mensurationsNombres[zone as MensurationZone] = Number(valeur.replace(",", "."));
@@ -148,16 +121,13 @@ export function MorningWeighInScreen() {
       <Text style={styles.texte}>Il ne veut rien dire tout seul — c'est la ligne des semaines qui parle.</Text>
 
       <View style={styles.stepper}>
-        <Pressable style={styles.rondStepper} {...appuiMoins}>
-          <Minus size={24} color={colors.accent700} strokeWidth={3} />
-        </Pressable>
-        <View style={{ alignItems: "center" }}>
-          <Text style={styles.chiffrePoids}>{poids.toFixed(1)}</Text>
-          <Text style={styles.uniteStepper}>{(utilisateur?.unitePoids ?? "kg").toUpperCase()}</Text>
-        </View>
-        <Pressable style={[styles.rondStepper, { backgroundColor: colors.accent }]} {...appuiPlus}>
-          <Plus size={24} color={colors.bg} strokeWidth={3} />
-        </Pressable>
+        <Stepper
+          valeur={poids}
+          onChange={setPoids}
+          pas={PAS_POIDS}
+          formatValeur={(v) => v.toFixed(1)}
+          unite={(utilisateur?.unitePoids ?? "kg").toUpperCase()}
+        />
       </View>
 
       {(utilisateur?.zonesMensurationActives ?? []).length > 0 && (
@@ -235,20 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: space[4],
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
   },
-  rondStepper: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.pill,
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  chiffrePoids: { fontFamily: fonts.heading, fontSize: 52, color: colors.text, letterSpacing: -0.5 },
-  uniteStepper: { fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 1.5, color: colors.neutral600, marginTop: 2 },
   label: { fontFamily: fonts.bodyBold, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: colors.neutral600 },
   labelLigne: { fontFamily: fonts.body, fontSize: 15, fontWeight: "600", color: colors.text },
   ligneMensuration: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

@@ -8,12 +8,13 @@ import { Carte } from "@/components/Card";
 import { IconeContexte } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
-import { calculerMarqueursCalendrier } from "@/utils/businessRules";
+import {
+  calculerMarqueursCalendrier,
+  dateISOAujourdhui,
+  construireJoursMois,
+  decouperEnGroupes,
+} from "@/utils/businessRules";
 import { RootStackParamList } from "@/navigation/types";
-
-function dateISOAujourdhui(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // Couleurs hors système accent/accent2 (jamais "bon/mauvais" par défaut),
 // utilisées ici à la demande explicite de l'utilisateur pour ces deux
@@ -49,48 +50,27 @@ export function MonthScreen() {
     return map;
   }, [peseesPourCalcul]);
 
-  const joursDuMois = useMemo(() => {
-    const { annee, mois } = moisAffiche;
-    const premierJour = new Date(annee, mois, 1);
-    const nbJours = new Date(annee, mois + 1, 0).getDate();
-    // décalage pour un affichage Lundi -> Dimanche
-    const decalage = (premierJour.getDay() + 6) % 7;
+  // Pré-indexation par date (au lieu d'un .some() par jour sur chaque
+  // tableau) : passe de O(jours du mois × entrées) à O(jours + entrées),
+  // ce qui compte après plusieurs années de grignotages/extras accumulés.
+  const datesAvecCheatmeal = useMemo(() => new Set(cheatmeals.map((c) => c.dateHeure.slice(0, 10))), [cheatmeals]);
+  const datesAvecGrignotage = useMemo(() => new Set(grignotages.map((g) => g.dateHeure.slice(0, 10))), [grignotages]);
+  const datesAvecSport = useMemo(() => new Set(seancesSport.map((s) => s.dateHeure.slice(0, 10))), [seancesSport]);
 
-    const jours: Array<{
-      date: string;
-      numero: number;
-      cheatmeal: boolean;
-      grignotage: boolean;
-      sport: boolean;
-      marqueur: "perte" | "prise" | null;
-    } | null> = new Array(decalage).fill(null);
+  const joursDuMois = useMemo(
+    () =>
+      construireJoursMois(
+        moisAffiche.annee,
+        moisAffiche.mois,
+        datesAvecCheatmeal,
+        datesAvecGrignotage,
+        datesAvecSport,
+        marqueursParDate
+      ),
+    [moisAffiche, datesAvecCheatmeal, datesAvecGrignotage, datesAvecSport, marqueursParDate]
+  );
 
-    for (let jour = 1; jour <= nbJours; jour++) {
-      const date = `${annee}-${pad(mois + 1)}-${pad(jour)}`;
-      jours.push({
-        date,
-        numero: jour,
-        cheatmeal: cheatmeals.some((c) => c.dateHeure.startsWith(date)),
-        grignotage: grignotages.some((g) => g.dateHeure.startsWith(date)),
-        sport: seancesSport.some((s) => s.dateHeure.startsWith(date)),
-        marqueur: marqueursParDate.get(date) ?? null,
-      });
-    }
-    // Complète la dernière semaine à 7 cases : sans ça, la rangée finale
-    // n'a que quelques cellules qui s'étirent (flex:1) pour combler la
-    // largeur de la rangée et paraissent plus grandes que les autres.
-    while (jours.length % 7 !== 0) jours.push(null);
-
-    return jours;
-  }, [moisAffiche, cheatmeals, grignotages, seancesSport, marqueursParDate]);
-
-  const semaines = useMemo(() => {
-    const resultat: (typeof joursDuMois)[] = [];
-    for (let i = 0; i < joursDuMois.length; i += 7) {
-      resultat.push(joursDuMois.slice(i, i + 7));
-    }
-    return resultat;
-  }, [joursDuMois]);
+  const semaines = useMemo(() => decouperEnGroupes(joursDuMois, 7), [joursDuMois]);
 
   function changerMois(delta: number) {
     setMoisAffiche(({ annee, mois }) => {

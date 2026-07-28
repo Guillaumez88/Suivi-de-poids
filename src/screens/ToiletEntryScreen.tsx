@@ -5,15 +5,13 @@ import { auth } from "@/services/firebaseConfig";
 import { creerPassageToilette, getPassagesToilette } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
+import { SegmentedControl } from "@/components/SegmentedControl";
+import { SectionKicker } from "@/components/SectionKicker";
 import { IconeBristol } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius } from "@/theme/theme";
 import { BRISTOL_DESCRIPTIONS, DifficulteSelles } from "@/types/models";
-import { alerteSaignementRecurrent } from "@/utils/businessRules";
-
-function dateISOAujourdhui(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { alerteSaignementRecurrent, dateISOAujourdhui } from "@/utils/businessRules";
 
 function heureLocaleActuelle(): string {
   const d = new Date();
@@ -30,6 +28,11 @@ const DIFFICULTES: { valeur: DifficulteSelles; label: string }[] = [
   { valeur: "difficile", label: "Difficile" },
 ];
 
+const MOMENTS_SAISIE: { valeur: "instant" | "plus_tot"; label: string }[] = [
+  { valeur: "instant", label: "À l'instant" },
+  { valeur: "plus_tot", label: "C'était plus tôt" },
+];
+
 export function ToiletEntryScreen() {
   const navigation = useNavigation();
   const { rafraichir } = useAppData();
@@ -37,7 +40,8 @@ export function ToiletEntryScreen() {
   const [difficulte, setDifficulte] = useState<DifficulteSelles>("normale");
   const [saignement, setSaignement] = useState(false); // décoché par défaut (section 3.2)
   const [enCours, setEnCours] = useState(false);
-  const [plusTot, setPlusTot] = useState(false);
+  const [momentSaisie, setMomentSaisie] = useState<"instant" | "plus_tot">("instant");
+  const plusTot = momentSaisie === "plus_tot";
   const [dateSaisie, setDateSaisie] = useState(dateISOAujourdhui());
   const [heureSaisie, setHeureSaisie] = useState(heureLocaleActuelle());
 
@@ -64,6 +68,8 @@ export function ToiletEntryScreen() {
       }
       await rafraichir();
       navigation.goBack();
+    } catch (e) {
+      Alert.alert("Ça n'a pas marché", (e as Error).message ?? "Erreur inconnue.");
     } finally {
       setEnCours(false);
     }
@@ -77,20 +83,7 @@ export function ToiletEntryScreen() {
       </Text>
 
       <View style={styles.carteMoment}>
-        <View style={styles.segments}>
-          <Pressable
-            onPress={() => setPlusTot(false)}
-            style={[styles.segmentMoment, !plusTot && styles.segmentMomentActif]}
-          >
-            <Text style={[styles.segmentTexte, !plusTot && styles.segmentTexteActif]}>À l'instant</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setPlusTot(true)}
-            style={[styles.segmentMoment, plusTot && styles.segmentMomentActif]}
-          >
-            <Text style={[styles.segmentTexte, plusTot && styles.segmentTexteActif]}>C'était plus tôt</Text>
-          </Pressable>
-        </View>
+        <SegmentedControl options={MOMENTS_SAISIE} valeur={momentSaisie} onChange={setMomentSaisie} fondInactif={colors.bg} />
         {plusTot && (
           <View style={styles.ligneDateHeure}>
             <TextInput style={styles.champDateHeure} value={dateSaisie} onChangeText={setDateSaisie} placeholder="AAAA-MM-JJ" />
@@ -123,20 +116,8 @@ export function ToiletEntryScreen() {
         })}
       </View>
 
-      <Text style={styles.sousTitre}>C'était</Text>
-      <View style={styles.segments}>
-        {DIFFICULTES.map((d) => (
-          <Pressable
-            key={d.valeur}
-            onPress={() => setDifficulte(d.valeur)}
-            style={[styles.segment, difficulte === d.valeur && styles.segmentActif]}
-          >
-            <Text style={[styles.segmentTexte, difficulte === d.valeur && styles.segmentTexteActif]}>
-              {d.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <SectionKicker label="C'était" />
+      <SegmentedControl options={DIFFICULTES} valeur={difficulte} onChange={setDifficulte} style={{ marginTop: space[2] }} />
 
       <Pressable style={styles.ligneSaignement} onPress={() => setSaignement((v) => !v)}>
         <View style={[styles.case, saignement && styles.caseCochee]} />
@@ -182,8 +163,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: space[4],
   },
-  segmentMoment: { flex: 1, alignItems: "center", paddingVertical: space[3], borderRadius: radius.pill, backgroundColor: colors.bg },
-  segmentMomentActif: { backgroundColor: colors.accent },
   ligneDateHeure: { flexDirection: "row", gap: space[2], marginTop: space[3] },
   champDateHeure: {
     flex: 1,
@@ -196,19 +175,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   aideMoment: { fontFamily: fonts.body, fontSize: 12.5, color: colors.neutral700, marginTop: space[3] },
-  sousTitre: {
-    marginTop: space[6],
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    color: colors.neutral600,
-  },
-  segments: { flexDirection: "row", gap: space[2], marginTop: space[2] },
-  segment: { flex: 1, alignItems: "center", paddingVertical: space[3], borderRadius: radius.pill, backgroundColor: colors.surface },
-  segmentActif: { backgroundColor: colors.accent },
-  segmentTexte: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.neutral700 },
-  segmentTexteActif: { fontFamily: fonts.heading, color: colors.bg },
   ligneSaignement: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Text, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { auth } from "@/services/firebaseConfig";
 import { creerSeanceSport } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
+import { SegmentedControl } from "@/components/SegmentedControl";
+import { SectionKicker } from "@/components/SectionKicker";
 import { useAppData } from "@/state/AppDataContext";
-import { colors, fonts, space, radius } from "@/theme/theme";
+import { colors, fonts, space } from "@/theme/theme";
 import { IntensiteSport, DureeSeanceSport } from "@/types/models";
 
 const INTENSITES: { valeur: IntensiteSport; label: string }[] = [
@@ -36,6 +38,8 @@ export function SportScreen() {
       await creerSeanceSport(uid, { dateHeure: new Date().toISOString(), intensite, dureeMinutes: duree });
       await rafraichir();
       navigation.goBack();
+    } catch (e) {
+      Alert.alert("Ça n'a pas marché", (e as Error).message ?? "Erreur inconnue.");
     } finally {
       setEnCours(false);
     }
@@ -46,35 +50,11 @@ export function SportScreen() {
       <Text style={styles.titre}>Une séance de sport ?</Text>
       <Text style={styles.texte}>Aucun détail à donner : juste l'intensité et la durée.</Text>
 
-      <Text style={styles.sousTitre}>L'intensité</Text>
-      <View style={styles.segments}>
-        {INTENSITES.map((i) => (
-          <Pressable
-            key={i.valeur}
-            onPress={() => setIntensite(i.valeur)}
-            style={[styles.segment, intensite === i.valeur && styles.segmentActif]}
-          >
-            <Text style={[styles.segmentTexte, intensite === i.valeur && styles.segmentTexteActif]}>
-              {i.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <SectionKicker label="L'intensité" />
+      <SegmentedControl options={INTENSITES} valeur={intensite} onChange={setIntensite} />
 
-      <Text style={styles.sousTitre}>La durée</Text>
-      <View style={styles.segments}>
-        {DUREES.map((d) => (
-          <Pressable
-            key={d.valeur}
-            onPress={() => setDuree(d.valeur)}
-            style={[styles.segment, duree === d.valeur && styles.segmentActif]}
-          >
-            <Text style={[styles.segmentTexte, duree === d.valeur && styles.segmentTexteActif]}>
-              {d.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <SectionKicker label="La durée" />
+      <SegmentedControl options={DUREES} valeur={duree} onChange={setDuree} />
 
       <Bouton
         label={enCours ? "Enregistrement…" : "C'est noté"}
@@ -90,17 +70,4 @@ export function SportScreen() {
 const styles = StyleSheet.create({
   titre: { fontFamily: fonts.heading, fontSize: 26, color: colors.text, marginTop: space[4] },
   texte: { fontFamily: fonts.body, fontSize: 13.5, color: colors.neutral700, marginTop: space[2] },
-  sousTitre: {
-    marginTop: space[6],
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    color: colors.neutral600,
-  },
-  segments: { flexDirection: "row", gap: space[2], marginTop: space[3] },
-  segment: { flex: 1, alignItems: "center", paddingVertical: space[4], borderRadius: radius.pill, backgroundColor: colors.surface },
-  segmentActif: { backgroundColor: colors.accent },
-  segmentTexte: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.neutral700, textAlign: "center" },
-  segmentTexteActif: { fontFamily: fonts.heading, color: colors.bg },
 });

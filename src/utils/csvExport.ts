@@ -22,7 +22,9 @@ function ligne(valeurs: (string | number | boolean | undefined)[]): string {
   return valeurs
     .map((v) => {
       const s = v === undefined ? "" : String(v);
-      return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+      return s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
     })
     .join(",");
 }
@@ -31,10 +33,10 @@ export function versCsv(d: Donnees): string {
   const lignes: string[] = [];
 
   lignes.push("=== Pesées matinales ===");
-  lignes.push(ligne(["date", "poids_kg", "etat_psy_score", "etat_psy_note", "mensurations_json"]));
+  lignes.push(ligne(["date", "heure_saisie", "poids_kg", "etat_psy_score", "etat_psy_note", "mensurations_json"]));
   for (const p of d.pesees) {
     lignes.push(
-      ligne([p.date, p.poidsKg, p.etatPsyScore, p.etatPsyNote, JSON.stringify(p.mensurations)])
+      ligne([p.date, p.creeLe, p.poidsKg, p.etatPsyScore, p.etatPsyNote, JSON.stringify(p.mensurations)])
     );
   }
 

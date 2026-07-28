@@ -13,6 +13,7 @@ import { View, ActivityIndicator } from "react-native";
 import { AppDataProvider, useAppData } from "@/state/AppDataContext";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { programmerRappelsDuJour } from "@/services/notifications";
+import { dateISOAujourdhui, estLeJour } from "@/utils/businessRules";
 import { colors } from "@/theme/theme";
 
 function ContenuApp() {
@@ -20,8 +21,8 @@ function ContenuApp() {
 
   useEffect(() => {
     if (!utilisateur) return;
-    const aujourdhui = new Date().toISOString().slice(0, 10);
-    const dejaFait = pesees.some((p) => p.date === aujourdhui);
+    const aujourdhui = dateISOAujourdhui();
+    const dejaFait = pesees.some((p) => estLeJour(p.date, aujourdhui));
     programmerRappelsDuJour(
       { heureRappel1: utilisateur.heureRappel1, heureRappel2: utilisateur.heureRappel2 },
       dejaFait

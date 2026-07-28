@@ -4,7 +4,7 @@ import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space } from "@/theme/theme";
-import { tendance, moyenneMobile } from "@/utils/businessRules";
+import { tendance, moyenneMobile, dateISOAujourdhui } from "@/utils/businessRules";
 
 const FENETRES = [
   { n: 7, label: "7 derniers jours" },
@@ -14,10 +14,6 @@ const FENETRES = [
   { n: 365, label: "365 derniers jours" },
 ];
 
-function dateISOAujourdhui(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export function TrendsScreen() {
   const { pesees } = useAppData();
   const aujourdhui = dateISOAujourdhui();
@@ -25,7 +21,14 @@ export function TrendsScreen() {
     () => pesees.map((p) => ({ date: p.date, poidsKg: p.poidsKg })),
     [pesees]
   );
-  const moyenneActuelle = moyenneMobile(peseesPourCalcul, aujourdhui, 7);
+  const moyenneActuelle = useMemo(
+    () => moyenneMobile(peseesPourCalcul, aujourdhui, 7),
+    [peseesPourCalcul, aujourdhui]
+  );
+  const tendances = useMemo(
+    () => FENETRES.map(({ n, label }) => ({ n, label, t: tendance(peseesPourCalcul, aujourdhui, n) })),
+    [peseesPourCalcul, aujourdhui]
+  );
 
   return (
     <EcranConteneur>
@@ -43,8 +46,7 @@ export function TrendsScreen() {
       </Carte>
 
       <View style={{ marginTop: space[5], gap: space[2] }}>
-        {FENETRES.map(({ n, label }) => {
-          const t = tendance(peseesPourCalcul, aujourdhui, n);
+        {tendances.map(({ n, label, t }) => {
           return (
             <Carte key={n} style={styles.ligneTendance}>
               <Text style={styles.labelLigne}>{label}</Text>

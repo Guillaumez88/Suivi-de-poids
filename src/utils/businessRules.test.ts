@@ -1,4 +1,6 @@
 import {
+  dateISOAujourdhui,
+  estLeJour,
   palierDeKilo,
   calculerMarqueursCalendrier,
   moyenneMobile,
@@ -9,7 +11,23 @@ import {
   alerteSaignementRecurrent,
   estDansFenetreMatinale,
   rappelDoitEtreEnvoye,
+  construireJoursMois,
+  decouperEnGroupes,
+  construireSemaine,
 } from "./businessRules";
+
+describe("dateISOAujourdhui", () => {
+  test("retourne une date au format YYYY-MM-DD", () => {
+    expect(dateISOAujourdhui()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("estLeJour", () => {
+  test("compare la partie date d'un horodatage ISO à un jour donné", () => {
+    expect(estLeJour("2026-07-20T14:32:00.000Z", "2026-07-20")).toBe(true);
+    expect(estLeJour("2026-07-21T00:00:00.000Z", "2026-07-20")).toBe(false);
+  });
+});
 
 describe("palierDeKilo (section 5.2)", () => {
   test("prend la partie entière du poids", () => {
@@ -193,5 +211,70 @@ describe("estDansFenetreMatinale et rappelDoitEtreEnvoye (sections 3.5 / 5.1)", 
   test("un rappel n'est pas envoyé si le formulaire est déjà rempli", () => {
     expect(rappelDoitEtreEnvoye(true)).toBe(false);
     expect(rappelDoitEtreEnvoye(false)).toBe(true);
+  });
+});
+
+describe("construireJoursMois (vue Mois)", () => {
+  test("aligne le 1er du mois sur son jour de semaine et complète la dernière rangée à 7", () => {
+    // Juillet 2026 commence un mercredi : 2 cases vides avant le 1er.
+    const jours = construireJoursMois(2026, 6, new Set(), new Set(), new Set(), new Map());
+    expect(jours[0]).toBeNull();
+    expect(jours[1]).toBeNull();
+    expect(jours[2]).toEqual({
+      date: "2026-07-01",
+      numero: 1,
+      cheatmeal: false,
+      grignotage: false,
+      sport: false,
+      marqueur: null,
+    });
+    expect(jours.length % 7).toBe(0);
+    // Le dernier jour réel (31) doit être suivi uniquement de cases vides.
+    const dernierJourReel = jours.filter((j) => j !== null).at(-1);
+    expect(dernierJourReel?.numero).toBe(31);
+  });
+
+  test("marque un jour avec extra, grignotage, sport et le marqueur de poids", () => {
+    const jours = construireJoursMois(
+      2026,
+      6,
+      new Set(["2026-07-05"]),
+      new Set(["2026-07-05"]),
+      new Set(["2026-07-05"]),
+      new Map([["2026-07-05", "perte"]])
+    );
+    const jour5 = jours.find((j) => j?.date === "2026-07-05");
+    expect(jour5).toEqual({
+      date: "2026-07-05",
+      numero: 5,
+      cheatmeal: true,
+      grignotage: true,
+      sport: true,
+      marqueur: "perte",
+    });
+  });
+});
+
+describe("decouperEnGroupes", () => {
+  test("découpe en groupes de la taille demandée, dernier groupe partiel inclus", () => {
+    expect(decouperEnGroupes([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(decouperEnGroupes([1, 2, 3, 4], 7).length).toBe(1);
+  });
+});
+
+describe("construireSemaine (accueil)", () => {
+  test("retourne les 7 jours à partir du lundi donné, avec les marqueurs du jour", () => {
+    const cheatmeals = [{ dateHeure: "2026-07-22T20:00:00.000Z" }]; // mercredi
+    const grignotages = [{ dateHeure: "2026-07-25T16:00:00.000Z" }]; // samedi
+    const marqueurs = [{ date: "2026-07-24", palier: 81, marqueur: "perte" as const }];
+
+    const semaine = construireSemaine("2026-07-20", cheatmeals, grignotages, marqueurs);
+
+    expect(semaine).toHaveLength(7);
+    expect(semaine[0].date).toBe("2026-07-20");
+    expect(semaine[6].date).toBe("2026-07-26");
+    expect(semaine[2]).toEqual({ date: "2026-07-22", aUnExtra: true, aUnGrignotage: false, marqueurJour: null });
+    expect(semaine[5]).toEqual({ date: "2026-07-25", aUnExtra: false, aUnGrignotage: true, marqueurJour: null });
+    expect(semaine[4].marqueurJour).toBe("perte"); // 2026-07-24
   });
 });

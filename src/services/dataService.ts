@@ -78,9 +78,10 @@ function sousCollection(uid: string, nom: string) {
 async function creer<T extends { id: string }>(
   uid: string,
   nomCollection: string,
-  donnees: Omit<T, "id" | "creeLe" | "modifieLe">
+  donnees: Omit<T, "id" | "creeLe" | "modifieLe">,
+  idPersonnalise?: string
 ): Promise<T> {
-  const id = genId();
+  const id = idPersonnalise ?? genId();
   const horodatage = nowIso();
   const entree = { ...donnees, id, creeLe: horodatage, modifieLe: horodatage } as unknown as T;
   await setDoc(doc(sousCollection(uid, nomCollection), id), entree);
@@ -127,7 +128,10 @@ export function creerPeseeMatinale(
   uid: string,
   donnees: Omit<PeseeMatinale, "id" | "creeLe" | "modifieLe" | "utilisateurId">
 ) {
-  return creer<PeseeMatinale>(uid, "pesees", { ...donnees, utilisateurId: uid });
+  // Id du document = date : garantit "une pesée par jour" au niveau base de
+  // données (un double envoi accidentel écrase le même document au lieu de
+  // créer un doublon qui fausserait la moyenne mobile).
+  return creer<PeseeMatinale>(uid, "pesees", { ...donnees, utilisateurId: uid }, donnees.date);
 }
 
 export const modifierPeseeMatinale = (uid: string, id: string, d: Record<string, unknown>) =>

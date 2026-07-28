@@ -74,11 +74,13 @@ export function CourbeDePoids({ points, largeur = 318, hauteur = 94 }: Props) {
 
   useEffect(() => {
     progression.setValue(0);
-    Animated.timing(progression, {
+    const animation = Animated.timing(progression, {
       toValue: 1,
       duration: 700,
       useNativeDriver: false, // strokeDashoffset n'est pas animable par le driver natif
-    }).start();
+    });
+    animation.start();
+    return () => animation.stop();
   }, [chemin, progression]);
 
   const decalageTrait = progression.interpolate({

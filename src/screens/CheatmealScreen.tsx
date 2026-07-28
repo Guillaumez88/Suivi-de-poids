@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { auth } from "@/services/firebaseConfig";
 import { creerCheatmeal } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Bouton } from "@/components/Button";
+import { SectionKicker } from "@/components/SectionKicker";
 import { IconeNiveauExtra } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius } from "@/theme/theme";
@@ -39,6 +40,8 @@ export function CheatmealScreen() {
       await creerCheatmeal(uid, { dateHeure: new Date().toISOString(), momentRepas: moment, niveau });
       await rafraichir();
       navigation.goBack();
+    } catch (e) {
+      Alert.alert("Ça n'a pas marché", (e as Error).message ?? "Erreur inconnue.");
     } finally {
       setEnCours(false);
     }
@@ -52,7 +55,7 @@ export function CheatmealScreen() {
         calories.
       </Text>
 
-      <Text style={styles.sousTitre}>C'était à quel moment</Text>
+      <SectionKicker label="C'était à quel moment" />
       <View style={styles.grille}>
         {MOMENTS.map((m) => (
           <Pressable
@@ -65,7 +68,7 @@ export function CheatmealScreen() {
         ))}
       </View>
 
-      <Text style={styles.sousTitre}>Et à la louche</Text>
+      <SectionKicker label="Et à la louche" />
       <View style={styles.niveaux}>
         {NIVEAUX.map((n) => {
           const actif = niveau === n.valeur;
@@ -103,14 +106,6 @@ export function CheatmealScreen() {
 const styles = StyleSheet.create({
   titre: { fontFamily: fonts.heading, fontSize: 26, color: colors.text, marginTop: space[4] },
   texte: { fontFamily: fonts.body, fontSize: 13.5, color: colors.neutral700, marginTop: space[2] },
-  sousTitre: {
-    marginTop: space[6],
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    color: colors.neutral600,
-  },
   grille: { flexDirection: "row", flexWrap: "wrap", gap: space[2], marginTop: space[3] },
   puce: { borderRadius: radius.pill, paddingVertical: space[3], paddingHorizontal: space[4], backgroundColor: colors.surface },
   puceActive: { backgroundColor: colors.accent },

@@ -44,7 +44,11 @@ export function Bouton({ label, onPress, variante = "primary", bloc, style, disa
       </Text>
       {fin && (
         <Text
-          style={[styles.fin, variante === "primary" && styles.labelPrimary]}
+          style={[
+            styles.fin,
+            variante === "primary" && styles.labelPrimary,
+            variante === "ghost" && styles.labelGhost,
+          ]}
         >
           {fin}
         </Text>

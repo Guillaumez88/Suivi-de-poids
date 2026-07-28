@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Clock, Dumbbell } from "lucide-react-native";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
 import { Carte } from "@/components/Card";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { CourbeDePoids } from "@/components/WeightCurve";
 import { IconeToilettes, IconeExtra, IconeGrignotage, IconeContexte } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
@@ -17,21 +18,20 @@ import {
   deltaDepuisPeseePrecedente,
   serieMoyenneMobile,
   ajouterJours,
+  dateISOAujourdhui,
+  estLeJour,
+  construireSemaine,
 } from "@/utils/businessRules";
 import { RootStackParamList } from "@/navigation/types";
 
 const FENETRES_TENDANCE = [7, 30, 90, 180, 365];
 const PERIODES_COURBE = [
-  { jours: 30, label: "30 j" },
-  { jours: 90, label: "90 j" },
-  { jours: 365, label: "1 an" },
+  { valeur: 30, label: "30 j" },
+  { valeur: 90, label: "90 j" },
+  { valeur: 365, label: "1 an" },
 ] as const;
 
 const JOURS_SEMAINE = ["L", "M", "M", "J", "V", "S", "D"];
-
-function dateISOAujourdhui(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formaterJour(date: Date): string {
   return date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -56,7 +56,7 @@ function depuisTexte(dateHeureISO: string): string {
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { utilisateur, pesees, passages, cheatmeals, grignotages, seancesSport } = useAppData();
-  const [periodeCourbe, setPeriodeCourbe] = useState<(typeof PERIODES_COURBE)[number]["jours"]>(30);
+  const [periodeCourbe, setPeriodeCourbe] = useState<(typeof PERIODES_COURBE)[number]["valeur"]>(30);
 
   const aujourdhui = dateISOAujourdhui();
   const peseesPourCalcul = useMemo(
@@ -65,17 +65,17 @@ export function HomeScreen() {
   );
 
   const peseeDuJour = pesees.find((p) => p.date === aujourdhui) ?? null;
-  const aUnPassageAujourdhui = passages.some((p) => p.dateHeure.slice(0, 10) === aujourdhui);
+  const aUnPassageAujourdhui = passages.some((p) => estLeJour(p.dateHeure, aujourdhui));
   const dernierPassage = passages[passages.length - 1] ?? null;
   const derniereMesure = pesees[pesees.length - 1] ?? null;
   const afficherPoidsAbsolu = utilisateur?.afficherPoidsAbsolu ?? true;
 
   const marqueurs = useMemo(() => calculerMarqueursCalendrier(peseesPourCalcul), [peseesPourCalcul]);
 
-  const tendances = FENETRES_TENDANCE.map((n) => ({
-    n,
-    valeur: tendance(peseesPourCalcul, aujourdhui, n),
-  }));
+  const tendances = useMemo(
+    () => FENETRES_TENDANCE.map((n) => ({ n, valeur: tendance(peseesPourCalcul, aujourdhui, n) })),
+    [peseesPourCalcul, aujourdhui]
+  );
 
   const deltaG = derniereMesure
     ? Math.round(Math.abs(deltaDepuisPeseePrecedente(peseesPourCalcul, derniereMesure.date) ?? 0) * 1000)
@@ -107,21 +107,12 @@ export function HomeScreen() {
   }, [seancesSport, lundiSemaine]);
 
   const semaine = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = ajouterJours(lundiSemaine, i);
-      const aUnExtra = cheatmeals.some((c) => c.dateHeure.slice(0, 10) === date);
-      const aUnGrignotage = grignotages.some((g) => g.dateHeure.slice(0, 10) === date);
-      const marqueurJour = marqueurs.find((m) => m.date === date)?.marqueur ?? null;
-      return {
-        date,
-        lettre: JOURS_SEMAINE[i],
-        numero: Number(date.slice(8, 10)),
-        estAujourdhui: date === aujourdhui,
-        aUnExtra,
-        aUnGrignotage,
-        marqueurJour,
-      };
-    });
+    return construireSemaine(lundiSemaine, cheatmeals, grignotages, marqueurs).map((j, i) => ({
+      ...j,
+      lettre: JOURS_SEMAINE[i],
+      numero: Number(j.date.slice(8, 10)),
+      estAujourdhui: j.date === aujourdhui,
+    }));
   }, [aujourdhui, lundiSemaine, cheatmeals, grignotages, marqueurs]);
 
   return (
@@ -176,17 +167,7 @@ export function HomeScreen() {
       <Carte style={{ marginTop: space[3] }}>
         <View style={styles.enteteCourbe}>
           <Text style={styles.sousTitreCarte}>Ces {periodeCourbe === 365 ? "365" : periodeCourbe} jours</Text>
-          <View style={{ flexDirection: "row", gap: 4 }}>
-            {PERIODES_COURBE.map((p) => (
-              <Text
-                key={p.jours}
-                onPress={() => setPeriodeCourbe(p.jours)}
-                style={[styles.ongletPeriode, periodeCourbe === p.jours && styles.ongletPeriodeActif]}
-              >
-                {p.label}
-              </Text>
-            ))}
-          </View>
+          <SegmentedControl variante="compact" options={PERIODES_COURBE} valeur={periodeCourbe} onChange={setPeriodeCourbe} />
         </View>
         <CourbeDePoids points={serieCourbe} />
         {serieCourbe.length > 0 && (
@@ -355,17 +336,6 @@ const styles = StyleSheet.create({
   badge: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: radius.pill, paddingVertical: space[1], paddingHorizontal: space[3] },
   pucePleine: { width: 8, height: 8, borderRadius: radius.pill, backgroundColor: colors.accent500 },
   enteteCourbe: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: space[2] },
-  ongletPeriode: {
-    fontFamily: fonts.body,
-    fontSize: 11.5,
-    fontWeight: "600",
-    color: colors.neutral700,
-    paddingVertical: 4,
-    paddingHorizontal: space[2],
-    borderRadius: radius.pill,
-    overflow: "hidden",
-  },
-  ongletPeriodeActif: { backgroundColor: colors.accent, color: colors.bg },
   axeCourbe: { flexDirection: "row", justifyContent: "space-between", marginTop: space[1] },
   axeTexte: { fontFamily: fonts.body, fontSize: 11, color: colors.neutral600 },
   sousTitreCarte: { fontFamily: fonts.heading, fontSize: 15.5, color: colors.text },
