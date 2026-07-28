@@ -33,6 +33,8 @@ export interface Utilisateur {
   tailleCm?: number; // stature, distincte du tour de taille ; requise pour l'IMC
   afficherPoidsAbsolu: boolean; // défaut true
 
+  objectifSeancesSemaine: number; // 0-7, défaut 3
+
   creeLe: string; // ISO 8601
 }
 
@@ -78,6 +80,19 @@ export interface Grignotage {
   id: string;
   utilisateurId: string;
   dateHeure: string;
+  creeLe: string;
+  modifieLe: string;
+}
+
+export type IntensiteSport = "leger" | "modere" | "intense";
+export type DureeSeanceSport = 15 | 30 | 60; // minutes
+
+export interface SeanceSport {
+  id: string;
+  utilisateurId: string;
+  dateHeure: string; // ISO 8601
+  intensite: IntensiteSport;
+  dureeMinutes: DureeSeanceSport;
   creeLe: string;
   modifieLe: string;
 }

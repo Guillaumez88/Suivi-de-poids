@@ -10,6 +10,7 @@ import { ToiletEntryScreen } from "@/screens/ToiletEntryScreen";
 import { CheatmealScreen } from "@/screens/CheatmealScreen";
 import { SnackConfirmScreen } from "@/screens/SnackConfirmScreen";
 import { ContextScreen } from "@/screens/ContextScreen";
+import { SportScreen } from "@/screens/SportScreen";
 import { DayDetailScreen } from "@/screens/DayDetailScreen";
 import { RootStackParamList } from "./types";
 
@@ -37,10 +38,24 @@ export function RootNavigator() {
             <Stack.Screen name="PeseeMatinale" component={MorningWeighInScreen} options={{ title: "Pesée du matin" }} />
             <Stack.Screen name="PassageToilette" component={ToiletEntryScreen} options={{ title: "Passage aux toilettes" }} />
             <Stack.Screen name="Cheatmeal" component={CheatmealScreen} options={{ title: "Un extra" }} />
-            <Stack.Screen name="Grignotage" component={SnackConfirmScreen} options={{ title: "Grignotage" }} />
             <Stack.Screen name="ContextePeriode" component={ContextScreen} options={{ title: "Contexte particulier" }} />
-            <Stack.Screen name="DetailJournee" component={DayDetailScreen} options={{ title: "Détail du jour" }} />
+            <Stack.Screen name="SeanceSport" component={SportScreen} options={{ title: "Séance de sport" }} />
           </Stack.Group>
+          {/* En-tête personnalisé (date en grand + badge contexte), pas la
+              barre native générique. */}
+          <Stack.Screen
+            name="DetailJournee"
+            component={DayDetailScreen}
+            options={{ presentation: "modal", headerShown: false }}
+          />
+          {/* Section 3.4 : un tap suffit, rien d'autre — pas de header ni de
+              plein écran opaque, juste un accusé de réception par-dessus
+              l'écran précédent. */}
+          <Stack.Screen
+            name="Grignotage"
+            component={SnackConfirmScreen}
+            options={{ presentation: "transparentModal", headerShown: false, animation: "fade" }}
+          />
         </>
       )}
     </Stack.Navigator>

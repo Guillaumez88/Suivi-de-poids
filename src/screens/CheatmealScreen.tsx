@@ -4,7 +4,9 @@ import { useNavigation } from "@react-navigation/native";
 import { auth } from "@/services/firebaseConfig";
 import { creerCheatmeal } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
+import { Carte } from "@/components/Card";
 import { Bouton } from "@/components/Button";
+import { IconeNiveauExtra } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius } from "@/theme/theme";
 import { MomentRepas, NiveauCheatmeal } from "@/types/models";
@@ -16,10 +18,10 @@ const MOMENTS: { valeur: MomentRepas; label: string }[] = [
   { valeur: "diner", label: "Dîner" },
 ];
 
-const NIVEAUX: { valeur: NiveauCheatmeal; label: string }[] = [
-  { valeur: "petit", label: "Petit extra" },
-  { valeur: "moyen", label: "Extra moyen" },
-  { valeur: "gros", label: "Gros extra" },
+const NIVEAUX: { valeur: NiveauCheatmeal; label: string; art: 1 | 2 | 3 }[] = [
+  { valeur: "petit", label: "petit", art: 1 },
+  { valeur: "moyen", label: "moyen", art: 2 },
+  { valeur: "gros", label: "gros", art: 3 },
 ];
 
 export function CheatmealScreen() {
@@ -44,8 +46,11 @@ export function CheatmealScreen() {
 
   return (
     <EcranConteneur>
-      <Text style={styles.titre}>Un petit extra ?</Text>
-      <Text style={styles.texte}>Aucun détail à donner : juste le moment et l'ampleur, pour comprendre plus tard.</Text>
+      <Text style={styles.titre}>Tu t'es autorisé{"\n"}un extra ?</Text>
+      <Text style={styles.texte}>
+        Très bien. On note juste quand et à peu près combien — jamais quoi, et surtout pas les
+        calories.
+      </Text>
 
       <Text style={styles.sousTitre}>C'était à quel moment</Text>
       <View style={styles.grille}>
@@ -60,18 +65,29 @@ export function CheatmealScreen() {
         ))}
       </View>
 
-      <Text style={styles.sousTitre}>Le niveau</Text>
-      <View style={styles.segments}>
-        {NIVEAUX.map((n) => (
-          <Pressable
-            key={n.valeur}
-            onPress={() => setNiveau(n.valeur)}
-            style={[styles.segment, niveau === n.valeur && styles.segmentActif]}
-          >
-            <Text style={[styles.segmentTexte, niveau === n.valeur && styles.segmentTexteActif]}>{n.label}</Text>
-          </Pressable>
-        ))}
+      <Text style={styles.sousTitre}>Et à la louche</Text>
+      <View style={styles.niveaux}>
+        {NIVEAUX.map((n) => {
+          const actif = niveau === n.valeur;
+          return (
+            <Pressable
+              key={n.valeur}
+              onPress={() => setNiveau(n.valeur)}
+              style={[styles.carteNiveau, { backgroundColor: actif ? colors.accent200 : colors.accent100 }]}
+            >
+              <IconeNiveauExtra niveau={n.art} color={colors.accent800} />
+              <Text style={styles.niveauLabel}>{n.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
+
+      <Carte tinted="accent2" style={{ marginTop: space[5] }}>
+        <Text style={styles.texteReassurance}>
+          Un extra ne se « rattrape » pas. Il se note, et la courbe s'en remet toute seule d'ici
+          deux ou trois jours.
+        </Text>
+      </Carte>
 
       <Bouton
         label={enCours ? "Enregistrement…" : "C'est noté"}
@@ -100,9 +116,8 @@ const styles = StyleSheet.create({
   puceActive: { backgroundColor: colors.accent },
   puceTexte: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.neutral800 },
   puceTexteActif: { color: colors.bg },
-  segments: { flexDirection: "row", gap: space[2], marginTop: space[3] },
-  segment: { flex: 1, alignItems: "center", paddingVertical: space[4], borderRadius: radius.pill, backgroundColor: colors.surface },
-  segmentActif: { backgroundColor: colors.accent },
-  segmentTexte: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.neutral700, textAlign: "center" },
-  segmentTexteActif: { fontFamily: fonts.heading, color: colors.bg },
+  niveaux: { flexDirection: "row", gap: space[2], marginTop: space[3] },
+  carteNiveau: { flex: 1, borderRadius: radius.lg, paddingVertical: space[5], alignItems: "center", gap: space[2] },
+  niveauLabel: { fontFamily: fonts.heading, fontSize: 15, color: colors.accent800 },
+  texteReassurance: { fontFamily: fonts.body, fontSize: 13.5, lineHeight: 21, color: colors.accent2_800 },
 });

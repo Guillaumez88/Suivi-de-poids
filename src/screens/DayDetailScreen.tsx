@@ -1,27 +1,47 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { RouteProp, useRoute } from "@react-navigation/native";
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { ChevronLeft } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
+import { Dumbbell } from "lucide-react-native";
 import {
   supprimerPeseeMatinale,
   supprimerPassageToilette,
   supprimerCheatmeal,
   supprimerGrignotage,
+  supprimerSeanceSport,
 } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Carte } from "@/components/Card";
 import { Etiquette } from "@/components/Tag";
+import { IconeBristol, IconeNiveauExtra, IconeGrignotage, VisageHumeur, LABELS_HUMEUR } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
-import { colors, fonts, space } from "@/theme/theme";
+import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
 import { RootStackParamList } from "@/navigation/types";
 import { BRISTOL_DESCRIPTIONS } from "@/types/models";
+import { calculerMarqueursCalendrier, palierDeKilo } from "@/utils/businessRules";
 
 type Route = RouteProp<RootStackParamList, "DetailJournee">;
 
+const NIVEAU_VERS_ART: Record<string, 1 | 2 | 3> = { petit: 1, moyen: 2, gros: 3 };
+const LABELS_INTENSITE: Record<string, string> = { leger: "peu intense", modere: "moyenne", intense: "intense" };
+
+function heureCourte(iso: string): string {
+  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+}
+
+function formaterDateEntete(date: string): { jour: string; moisAnnee: string } {
+  const d = new Date(`${date}T00:00:00`);
+  const jour = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" });
+  const moisAnnee = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  return { jour: `${jour.charAt(0).toUpperCase()}${jour.slice(1)}`, moisAnnee };
+}
+
 export function DayDetailScreen() {
+  const navigation = useNavigation();
   const { params } = useRoute<Route>();
   const { date } = params;
-  const { pesees, passages, cheatmeals, grignotages, contextes, rafraichir } = useAppData();
+  const { pesees, passages, cheatmeals, grignotages, contextes, seancesSport, rafraichir } = useAppData();
 
   const uid = auth.currentUser?.uid;
   const pesee = pesees.find((p) => p.date === date);
@@ -29,103 +49,201 @@ export function DayDetailScreen() {
   const cheatmealsJour = cheatmeals.filter((c) => c.dateHeure.startsWith(date));
   const grignotagesJour = grignotages.filter((g) => g.dateHeure.startsWith(date));
   const contextesJour = contextes.filter((c) => c.dateDebut <= date && (!c.dateFin || c.dateFin >= date));
+  const seancesJour = seancesSport.filter((s) => s.dateHeure.startsWith(date));
+
+  const marqueurDuJour = useMemo(() => {
+    if (!pesee) return null;
+    const peseesPourCalcul = pesees.map((p) => ({ date: p.date, poidsKg: p.poidsKg }));
+    return calculerMarqueursCalendrier(peseesPourCalcul).find((m) => m.date === date)?.marqueur ?? null;
+  }, [pesees, date, pesee]);
+
+  const { jour, moisAnnee } = formaterDateEntete(date);
 
   async function supprimer(action: () => Promise<void>) {
     await action();
     await rafraichir();
   }
 
+  const aDesEntrees =
+    pesee ||
+    passagesJour.length > 0 ||
+    cheatmealsJour.length > 0 ||
+    grignotagesJour.length > 0 ||
+    seancesJour.length > 0;
+
   return (
     <EcranConteneur>
-      <Text style={styles.titre}>{date}</Text>
+      <View style={styles.enteteNav}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
+          <ChevronLeft color={colors.neutral700} size={22} strokeWidth={iconStrokeWidth} />
+        </Pressable>
+      </View>
+
+      <View style={styles.enteteTitre}>
+        <View>
+          <Text style={styles.titre}>{jour}</Text>
+          <Text style={styles.sousTitreDate}>{moisAnnee}</Text>
+        </View>
+        {contextesJour[0] && (
+          <Etiquette
+            label={`${contextesJour[0].note ?? contextesJour[0].type}${contextesJour[0].note ? ` · ${contextesJour[0].type}` : ""}`}
+            ton="accent2"
+          />
+        )}
+      </View>
 
       {pesee && (
         <Carte style={{ marginTop: space[4] }}>
-          <View style={styles.ligneEntete}>
-            <Text style={styles.sousTitre}>Pesée matinale</Text>
-            {uid && (
-              <Pressable onPress={() => supprimer(() => supprimerPeseeMatinale(uid, pesee.id))}>
-                <Text style={styles.supprimer}>Supprimer</Text>
-              </Pressable>
+          <Text style={styles.kicker}>Pesée · {heureCourte(pesee.creeLe)}</Text>
+          <View style={styles.ligneValeurPoids}>
+            <Text style={styles.valeurPoids}>
+              {pesee.poidsKg}
+              <Text style={styles.unitePoids}> kg</Text>
+            </Text>
+            {marqueurDuJour && (
+              <Etiquette label={`${palierDeKilo(pesee.poidsKg)} kg franchis`} ton="accent2" />
             )}
           </View>
-          <Text style={styles.valeur}>{pesee.poidsKg} kg</Text>
-          <Text style={styles.detailTexte}>État du jour : {pesee.etatPsyScore}/5</Text>
-          {pesee.etatPsyNote ? <Text style={styles.detailTexte}>« {pesee.etatPsyNote} »</Text> : null}
+          {Object.keys(pesee.mensurations).length > 0 && (
+            <View style={styles.rangeeTags}>
+              {Object.entries(pesee.mensurations).map(([zone, valeur]) => (
+                <View key={zone} style={styles.tagMensuration}>
+                  <Text style={styles.tagMensurationTexte}>
+                    {zone} {valeur}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {uid && (
+            <Text style={styles.supprimer} onPress={() => supprimer(() => supprimerPeseeMatinale(uid, pesee.id))}>
+              Supprimer
+            </Text>
+          )}
         </Carte>
       )}
 
-      {passagesJour.map((p) => (
-        <Carte key={p.id} style={{ marginTop: space[3] }}>
-          <View style={styles.ligneEntete}>
-            <Text style={styles.sousTitre}>Passage aux toilettes</Text>
-            {uid && (
-              <Pressable onPress={() => supprimer(() => supprimerPassageToilette(uid, p.id))}>
-                <Text style={styles.supprimer}>Supprimer</Text>
-              </Pressable>
-            )}
+      {pesee && (
+        <Carte style={{ marginTop: space[3], flexDirection: "row", alignItems: "center", gap: space[3] }}>
+          <VisageHumeur niveau={pesee.etatPsyScore} size={28} color={colors.accent700} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>{LABELS_HUMEUR[pesee.etatPsyScore - 1]}</Text>
+            {pesee.etatPsyNote ? <Text style={styles.noteTexte}>« {pesee.etatPsyNote} »</Text> : null}
           </View>
-          <Text style={styles.detailTexte}>
-            Type {p.typeBristol} — {BRISTOL_DESCRIPTIONS[p.typeBristol]}
-          </Text>
-          <Text style={styles.detailTexte}>Difficulté : {p.difficulte}</Text>
-          {p.saignement && <Etiquette label="Saignement signalé" ton="accent2" />}
         </Carte>
-      ))}
+      )}
+
+      {passagesJour.length > 0 && (
+        <Carte style={{ marginTop: space[3] }}>
+          <Text style={styles.kicker}>Transit · {passagesJour.length} passage{passagesJour.length > 1 ? "s" : ""}</Text>
+          <View style={{ gap: space[2], marginTop: space[2] }}>
+            {passagesJour.map((p) => (
+              <View key={p.id} style={styles.rangeeTransit}>
+                <IconeBristol type={p.typeBristol} width={40} height={26} color={colors.accent700} />
+                <Text style={styles.texteTransit}>
+                  Type {p.typeBristol} · {p.difficulte}{" "}
+                  <Text style={{ color: colors.neutral600 }}>— {heureCourte(p.dateHeure)}</Text>
+                </Text>
+                {uid && (
+                  <Text style={styles.supprimerInline} onPress={() => supprimer(() => supprimerPassageToilette(uid, p.id))}>
+                    Supprimer
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        </Carte>
+      )}
 
       {cheatmealsJour.map((c) => (
-        <Carte key={c.id} style={{ marginTop: space[3] }}>
-          <View style={styles.ligneEntete}>
-            <Text style={styles.sousTitre}>Un extra</Text>
-            {uid && (
-              <Pressable onPress={() => supprimer(() => supprimerCheatmeal(uid, c.id))}>
-                <Text style={styles.supprimer}>Supprimer</Text>
-              </Pressable>
-            )}
+        <Carte key={c.id} style={{ marginTop: space[3], flexDirection: "row", alignItems: "center", gap: space[3] }}>
+          <View style={styles.puceExtra}>
+            <IconeNiveauExtra niveau={NIVEAU_VERS_ART[c.niveau]} size={22} color={colors.accent800} />
           </View>
-          <Etiquette label={`${c.momentRepas} · ${c.niveau}`} ton="accent" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Un extra, {c.niveau}</Text>
+            <Text style={styles.noteTexte}>
+              {c.momentRepas} · {heureCourte(c.dateHeure)}
+            </Text>
+          </View>
+          {uid && (
+            <Text style={styles.supprimer} onPress={() => supprimer(() => supprimerCheatmeal(uid, c.id))}>
+              Supprimer
+            </Text>
+          )}
         </Carte>
       ))}
 
       {grignotagesJour.map((g) => (
-        <Carte key={g.id} style={{ marginTop: space[3] }}>
-          <View style={styles.ligneEntete}>
-            <Text style={styles.sousTitre}>Grignotage</Text>
-            {uid && (
-              <Pressable onPress={() => supprimer(() => supprimerGrignotage(uid, g.id))}>
-                <Text style={styles.supprimer}>Supprimer</Text>
-              </Pressable>
-            )}
+        <Carte key={g.id} style={{ marginTop: space[3], flexDirection: "row", alignItems: "center", gap: space[3] }}>
+          <View style={styles.puceNeutre}>
+            <IconeGrignotage size={20} color={colors.accent700} />
           </View>
-          <Text style={styles.detailTexte}>{new Date(g.dateHeure).toLocaleTimeString("fr-FR")}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Grignotage</Text>
+            <Text style={styles.noteTexte}>{heureCourte(g.dateHeure)}</Text>
+          </View>
+          {uid && (
+            <Text style={styles.supprimer} onPress={() => supprimer(() => supprimerGrignotage(uid, g.id))}>
+              Supprimer
+            </Text>
+          )}
         </Carte>
       ))}
 
-      {contextesJour.map((c) => (
-        <Carte key={c.id} style={{ marginTop: space[3] }} tinted="accent2">
-          <Text style={styles.sousTitre}>Contexte particulier</Text>
-          <Text style={styles.detailTexte}>
-            {c.type} · {c.dateDebut} → {c.dateFin ?? "en cours"}
+      {seancesJour.map((s) => (
+        <Carte key={s.id} style={{ marginTop: space[3], flexDirection: "row", alignItems: "center", gap: space[3] }}>
+          <View style={styles.puceNeutre}>
+            <Dumbbell size={20} color={colors.accent700} strokeWidth={iconStrokeWidth} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Sport, {LABELS_INTENSITE[s.intensite]}</Text>
+            <Text style={styles.noteTexte}>
+              {s.dureeMinutes} min · {heureCourte(s.dateHeure)}
+            </Text>
+          </View>
+          {uid && (
+            <Text style={styles.supprimer} onPress={() => supprimer(() => supprimerSeanceSport(uid, s.id))}>
+              Supprimer
+            </Text>
+          )}
+        </Carte>
+      ))}
+
+      {contextesJour.length > 0 && (
+        <Carte style={{ marginTop: space[3] }} tinted="accent2">
+          <Text style={styles.texteContexte}>
+            Journée de {contextesJour[0].type} : la courbe ne compte pas ce chiffre dans la moyenne
+            si tu ne veux pas.
           </Text>
-          {c.note ? <Text style={styles.detailTexte}>{c.note}</Text> : null}
         </Carte>
-      ))}
+      )}
 
-      {!pesee &&
-        passagesJour.length === 0 &&
-        cheatmealsJour.length === 0 &&
-        grignotagesJour.length === 0 &&
-        contextesJour.length === 0 && <Text style={styles.vide}>Aucune entrée ce jour-là.</Text>}
+      {!aDesEntrees && <Text style={styles.vide}>Aucune entrée ce jour-là.</Text>}
     </EcranConteneur>
   );
 }
 
 const styles = StyleSheet.create({
-  titre: { fontFamily: fonts.heading, fontSize: 24, color: colors.text, marginTop: space[4] },
-  ligneEntete: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: space[2] },
-  sousTitre: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.neutral700 },
-  supprimer: { fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.accent700 },
-  valeur: { fontFamily: fonts.heading, fontSize: 28, color: colors.text },
-  detailTexte: { fontFamily: fonts.body, fontSize: 13.5, color: colors.neutral800, marginTop: 2 },
+  enteteNav: { marginTop: space[3] },
+  enteteTitre: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: space[3] },
+  titre: { fontFamily: fonts.heading, fontSize: 27, color: colors.text },
+  sousTitreDate: { fontFamily: fonts.body, fontSize: 13.5, color: colors.neutral700, marginTop: 3 },
+  kicker: { fontFamily: fonts.bodyBold, fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: colors.neutral600 },
+  ligneValeurPoids: { flexDirection: "row", alignItems: "baseline", gap: space[3], marginTop: space[2] },
+  valeurPoids: { fontFamily: fonts.heading, fontSize: 38, color: colors.text },
+  unitePoids: { fontFamily: fonts.body, fontSize: 17 },
+  rangeeTags: { flexDirection: "row", flexWrap: "wrap", gap: space[2], marginTop: space[3] },
+  tagMensuration: { backgroundColor: colors.bg, borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: space[3] },
+  tagMensurationTexte: { fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.text, textTransform: "capitalize" },
+  labelLigne: { fontFamily: fonts.bodyMedium, fontSize: 14.5, color: colors.text, textTransform: "capitalize" },
+  noteTexte: { fontFamily: fonts.body, fontSize: 13, color: colors.neutral700, marginTop: 2 },
+  rangeeTransit: { flexDirection: "row", alignItems: "center", gap: space[3] },
+  texteTransit: { flex: 1, fontFamily: fonts.body, fontSize: 14, color: colors.text },
+  puceExtra: { width: 46, height: 46, borderRadius: radius.pill, backgroundColor: colors.accent200, alignItems: "center", justifyContent: "center" },
+  puceNeutre: { width: 46, height: 46, borderRadius: radius.pill, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  texteContexte: { fontFamily: fonts.body, fontSize: 13.5, lineHeight: 21, color: colors.accent2_800 },
+  supprimer: { fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.accent700, marginTop: space[2] },
+  supprimerInline: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.neutral700 },
   vide: { fontFamily: fonts.body, fontSize: 14, color: colors.neutral600, marginTop: space[8], textAlign: "center" },
 });

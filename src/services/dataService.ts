@@ -19,6 +19,7 @@ import type {
   Cheatmeal,
   Grignotage,
   ContextePeriode,
+  SeanceSport,
 } from "@/types/models";
 
 /**
@@ -63,6 +64,7 @@ export function utilisateurParDefaut(uid: string, email: string): Utilisateur {
     zonesMensurationActives: ["tour_de_taille"],
     sexe: "non_precise",
     afficherPoidsAbsolu: true,
+    objectifSeancesSemaine: 3,
     creeLe: nowIso(),
   };
 }
@@ -208,6 +210,23 @@ export function creerContexte(
 export const modifierContexte = (uid: string, id: string, d: Record<string, unknown>) =>
   modifier(uid, "contextes", id, d);
 export const supprimerContexte = (uid: string, id: string) => supprimer(uid, "contextes", id);
+
+// ---------- Séance de sport ----------
+
+export async function getSeancesSport(uid: string): Promise<SeanceSport[]> {
+  const q = query(sousCollection(uid, "seancesSport"), orderBy("dateHeure", "asc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as SeanceSport);
+}
+
+export function creerSeanceSport(
+  uid: string,
+  donnees: Omit<SeanceSport, "id" | "creeLe" | "modifieLe" | "utilisateurId">
+) {
+  return creer<SeanceSport>(uid, "seancesSport", { ...donnees, utilisateurId: uid });
+}
+
+export const supprimerSeanceSport = (uid: string, id: string) => supprimer(uid, "seancesSport", id);
 
 // Note : `Timestamp` est ré-exporté au cas où un écran préfère stocker les
 // horodatages en Timestamp Firestore natif plutôt qu'en chaîne ISO ; ce

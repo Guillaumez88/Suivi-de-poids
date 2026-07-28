@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { User, ArrowDown, ArrowUp, Clock } from "lucide-react-native";
+import { ArrowDown, ArrowUp, Clock, Dumbbell } from "lucide-react-native";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
 import { Carte } from "@/components/Card";
@@ -45,9 +45,17 @@ function formaterDateCourte(dateISO: string): string {
   });
 }
 
+/** Temps écoulé depuis un horodatage ISO, formaté "il y a 3h20" / "il y a 12 min". */
+function depuisTexte(dateHeureISO: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(dateHeureISO).getTime()) / 60000));
+  const heures = Math.floor(minutes / 60);
+  const reste = minutes % 60;
+  return heures === 0 ? `il y a ${reste} min` : `il y a ${heures}h${reste.toString().padStart(2, "0")}`;
+}
+
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { utilisateur, pesees, cheatmeals, grignotages } = useAppData();
+  const { utilisateur, pesees, passages, cheatmeals, grignotages, seancesSport } = useAppData();
   const [periodeCourbe, setPeriodeCourbe] = useState<(typeof PERIODES_COURBE)[number]["jours"]>(30);
 
   const aujourdhui = dateISOAujourdhui();
@@ -57,6 +65,8 @@ export function HomeScreen() {
   );
 
   const peseeDuJour = pesees.find((p) => p.date === aujourdhui) ?? null;
+  const aUnPassageAujourdhui = passages.some((p) => p.dateHeure.slice(0, 10) === aujourdhui);
+  const dernierPassage = passages[passages.length - 1] ?? null;
   const derniereMesure = pesees[pesees.length - 1] ?? null;
   const afficherPoidsAbsolu = utilisateur?.afficherPoidsAbsolu ?? true;
 
@@ -80,12 +90,25 @@ export function HomeScreen() {
     [peseesPourCalcul, aujourdhui, periodeCourbe]
   );
 
-  const semaine = useMemo(() => {
+  const lundiSemaine = useMemo(() => {
     const jourSemaineISO = new Date(`${aujourdhui}T00:00:00Z`).getUTCDay(); // 0=dimanche
     const decalageLundi = jourSemaineISO === 0 ? 6 : jourSemaineISO - 1;
-    const lundi = ajouterJours(aujourdhui, -decalageLundi);
+    return ajouterJours(aujourdhui, -decalageLundi);
+  }, [aujourdhui]);
+
+  const objectifSportBrut = utilisateur?.objectifSeancesSemaine;
+  const objectifSport = Number.isFinite(objectifSportBrut) ? (objectifSportBrut as number) : 3;
+  const seancesCetteSemaine = useMemo(() => {
+    const dimancheSemaine = ajouterJours(lundiSemaine, 6);
+    return seancesSport.filter((s) => {
+      const date = s.dateHeure.slice(0, 10);
+      return date >= lundiSemaine && date <= dimancheSemaine;
+    }).length;
+  }, [seancesSport, lundiSemaine]);
+
+  const semaine = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
-      const date = ajouterJours(lundi, i);
+      const date = ajouterJours(lundiSemaine, i);
       const aUnExtra = cheatmeals.some((c) => c.dateHeure.slice(0, 10) === date);
       const aUnGrignotage = grignotages.some((g) => g.dateHeure.slice(0, 10) === date);
       const marqueurJour = marqueurs.find((m) => m.date === date)?.marqueur ?? null;
@@ -99,18 +122,13 @@ export function HomeScreen() {
         marqueurJour,
       };
     });
-  }, [aujourdhui, cheatmeals, grignotages, marqueurs]);
+  }, [aujourdhui, lundiSemaine, cheatmeals, grignotages, marqueurs]);
 
   return (
     <EcranConteneur>
       <View style={styles.entete}>
-        <View>
-          <Text style={styles.dateDuJour}>{formaterJour(new Date())}</Text>
-          <Text style={styles.titre}>Bien dormi ?</Text>
-        </View>
-        <View style={styles.avatar}>
-          <User color={colors.text} size={21} strokeWidth={iconStrokeWidth} />
-        </View>
+        <Text style={styles.dateDuJour}>{formaterJour(new Date())}</Text>
+        <Text style={styles.titre}>Bien dormi ?</Text>
       </View>
 
       {derniereMesure && (
@@ -199,6 +217,23 @@ export function HomeScreen() {
         </View>
       </Carte>
 
+      <Carte style={{ marginTop: space[3] }}>
+        <View style={styles.enteteSport}>
+          <Text style={styles.sousTitreCarte}>Sport cette semaine</Text>
+          <Text style={styles.sportValeur}>
+            {seancesCetteSemaine} / {objectifSport}
+          </Text>
+        </View>
+        <View style={styles.pisteProgression}>
+          <View
+            style={[
+              styles.progression,
+              { width: `${objectifSport > 0 ? Math.min(100, (seancesCetteSemaine / objectifSport) * 100) : 100}%` },
+            ]}
+          />
+        </View>
+      </Carte>
+
       <View style={styles.enteteSemaine}>
         <Text style={styles.sousTitreCarte}>Ta semaine</Text>
         <View style={styles.legendeSemaine}>
@@ -247,38 +282,57 @@ export function HomeScreen() {
           bloc
           disabled={!!peseeDuJour}
           icone={<Clock size={20} color={colors.bg} strokeWidth={iconStrokeWidth} />}
-          fin={utilisateur ? `jusqu'à ${utilisateur.fenetreMatinFin}` : undefined}
+          fin={!peseeDuJour && utilisateur ? `jusqu'à ${utilisateur.fenetreMatinFin}` : undefined}
         />
-        <View style={styles.actionsRangee}>
+
+        {!aUnPassageAujourdhui && (
           <Bouton
-            label="Toilettes"
+            label="Popo du jour"
             onPress={() => navigation.navigate("PassageToilette")}
             variante="secondary"
-            style={styles.actionMoitie}
+            bloc
             icone={<IconeToilettes size={19} color={colors.accent700} />}
+            fin={dernierPassage ? depuisTexte(dernierPassage.dateHeure) : undefined}
           />
+        )}
+
+        <View style={styles.grilleActions}>
+          {aUnPassageAujourdhui && (
+            <Bouton
+              label="Toilettes"
+              onPress={() => navigation.navigate("PassageToilette")}
+              variante="secondary"
+              style={styles.actionTuile}
+              icone={<IconeToilettes size={19} color={colors.accent700} />}
+            />
+          )}
           <Bouton
             label="Un extra"
             onPress={() => navigation.navigate("Cheatmeal")}
             variante="secondary"
-            style={styles.actionMoitie}
+            style={styles.actionTuile}
             icone={<IconeExtra size={19} color={colors.accent700} />}
           />
-        </View>
-        <View style={styles.actionsRangee}>
           <Bouton
             label="Grignotage"
             onPress={() => navigation.navigate("Grignotage")}
             variante="secondary"
-            style={styles.actionMoitie}
+            style={styles.actionTuile}
             icone={<IconeGrignotage size={19} color={colors.accent700} />}
           />
           <Bouton
             label="Contexte"
             onPress={() => navigation.navigate("ContextePeriode")}
             variante="secondary"
-            style={styles.actionMoitie}
+            style={styles.actionTuile}
             icone={<IconeContexte size={19} color={colors.accent700} />}
+          />
+          <Bouton
+            label="Sport"
+            onPress={() => navigation.navigate("SeanceSport")}
+            variante="secondary"
+            style={styles.actionTuile}
+            icone={<Dumbbell size={19} color={colors.accent700} strokeWidth={iconStrokeWidth} />}
           />
         </View>
       </View>
@@ -291,10 +345,9 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  entete: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginTop: space[3] },
+  entete: { marginTop: space[3] },
   dateDuJour: { fontFamily: fonts.bodyBold, fontSize: 12.5, letterSpacing: 0.5, textTransform: "uppercase", color: colors.neutral600 },
   titre: { fontFamily: fonts.heading, fontSize: 23, color: colors.text, marginTop: space[1] },
-  avatar: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   blocPoids: { flexDirection: "row", alignItems: "baseline", gap: space[3], marginTop: space[5] },
   poidsGrand: { fontFamily: fonts.heading, fontSize: 52, color: colors.text },
   poidsUnite: { fontFamily: fonts.body, fontSize: 20 },
@@ -320,6 +373,10 @@ const styles = StyleSheet.create({
   chipTendance: { flex: 1, borderRadius: radius.md, padding: space[2], alignItems: "center" },
   chipLabel: { fontFamily: fonts.bodyBold, fontSize: 10 },
   chipValeur: { fontFamily: fonts.heading, fontSize: 15, color: colors.text, marginTop: space[1] },
+  enteteSport: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  sportValeur: { fontFamily: fonts.heading, fontSize: 15.5, color: colors.text },
+  pisteProgression: { height: 8, borderRadius: radius.pill, backgroundColor: colors.neutral200, marginTop: space[3], overflow: "hidden" },
+  progression: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.accent2_500 },
   enteteSemaine: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space[5] },
   legendeSemaine: { flexDirection: "row", gap: space[2] },
   legendeItem: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -333,7 +390,7 @@ const styles = StyleSheet.create({
   jourNumero: { fontFamily: fonts.heading, fontSize: 16, color: colors.text },
   jourMarqueurs: { height: 20, alignItems: "center", justifyContent: "center", gap: 3 },
   actions: { marginTop: space[6], gap: space[2] },
-  actionsRangee: { flexDirection: "row", gap: space[2] },
-  actionMoitie: { flex: 1 },
+  grilleActions: { flexDirection: "row", flexWrap: "wrap", gap: space[2] },
+  actionTuile: { width: "48%" },
   pied: { fontFamily: fonts.body, fontSize: 12, color: colors.neutral600, textAlign: "center", marginTop: space[5] },
 });

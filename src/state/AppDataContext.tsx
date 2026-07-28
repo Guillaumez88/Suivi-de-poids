@@ -8,6 +8,7 @@ import {
   getCheatmeals,
   getGrignotages,
   getContextes,
+  getSeancesSport,
 } from "@/services/dataService";
 import type {
   Utilisateur,
@@ -16,6 +17,7 @@ import type {
   Cheatmeal,
   Grignotage,
   ContextePeriode,
+  SeanceSport,
 } from "@/types/models";
 
 interface AppData {
@@ -26,6 +28,7 @@ interface AppData {
   cheatmeals: Cheatmeal[];
   grignotages: Grignotage[];
   contextes: ContextePeriode[];
+  seancesSport: SeanceSport[];
   chargement: boolean;
   rafraichir: () => Promise<void>;
 }
@@ -40,6 +43,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [cheatmeals, setCheatmeals] = useState<Cheatmeal[]>([]);
   const [grignotages, setGrignotages] = useState<Grignotage[]>([]);
   const [contextes, setContextes] = useState<ContextePeriode[]>([]);
+  const [seancesSport, setSeancesSport] = useState<SeanceSport[]>([]);
   const [chargement, setChargement] = useState(true);
 
   const rafraichir = useCallback(async () => {
@@ -51,17 +55,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setCheatmeals([]);
       setGrignotages([]);
       setContextes([]);
+      setSeancesSport([]);
       setChargement(false);
       return;
     }
-    setChargement(true);
-    const [u, p, t, c, g, ctx] = await Promise.all([
+    // Ne repasse pas `chargement` à true ici : ce booléen ne doit gater que le
+    // tout premier chargement (RootNavigator affiche un plein écran de
+    // chargement tant qu'il est true, ce qui démonte/remonte toute la
+    // navigation — un rafraîchissement après une simple modification de
+    // réglage ne doit jamais faire ça, sous peine de renvoyer l'utilisateur
+    // sur le premier onglet à chaque enregistrement).
+    const [u, p, t, c, g, ctx, s] = await Promise.all([
       getUtilisateur(uid),
       getPesees(uid),
       getPassagesToilette(uid),
       getCheatmeals(uid),
       getGrignotages(uid),
       getContextes(uid),
+      getSeancesSport(uid),
     ]);
     setUtilisateur(u);
     setPesees(p);
@@ -69,6 +80,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCheatmeals(c);
     setGrignotages(g);
     setContextes(ctx);
+    setSeancesSport(s);
     setChargement(false);
   }, []);
 
@@ -90,6 +102,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         cheatmeals,
         grignotages,
         contextes,
+        seancesSport,
         chargement,
         rafraichir,
       }}

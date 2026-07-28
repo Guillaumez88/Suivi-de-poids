@@ -21,5 +21,6 @@ export type RootStackParamList = {
   Cheatmeal: undefined;
   Grignotage: undefined;
   ContextePeriode: undefined;
+  SeanceSport: undefined;
   DetailJournee: { date: string };
 };

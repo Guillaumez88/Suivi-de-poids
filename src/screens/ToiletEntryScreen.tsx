@@ -1,14 +1,28 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { auth } from "@/services/firebaseConfig";
 import { creerPassageToilette, getPassagesToilette } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
+import { IconeBristol } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius } from "@/theme/theme";
 import { BRISTOL_DESCRIPTIONS, DifficulteSelles } from "@/types/models";
 import { alerteSaignementRecurrent } from "@/utils/businessRules";
+
+function dateISOAujourdhui(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function heureLocaleActuelle(): string {
+  const d = new Date();
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
+
+function formaterJourCourt(dateISO: string): string {
+  return new Date(`${dateISO}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
 
 const DIFFICULTES: { valeur: DifficulteSelles; label: string }[] = [
   { valeur: "facile", label: "Facile" },
@@ -23,13 +37,16 @@ export function ToiletEntryScreen() {
   const [difficulte, setDifficulte] = useState<DifficulteSelles>("normale");
   const [saignement, setSaignement] = useState(false); // décoché par défaut (section 3.2)
   const [enCours, setEnCours] = useState(false);
+  const [plusTot, setPlusTot] = useState(false);
+  const [dateSaisie, setDateSaisie] = useState(dateISOAujourdhui());
+  const [heureSaisie, setHeureSaisie] = useState(heureLocaleActuelle());
 
   async function onEnregistrer() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     setEnCours(true);
     try {
-      const dateHeure = new Date().toISOString();
+      const dateHeure = plusTot ? `${dateSaisie}T${heureSaisie}:00` : new Date().toISOString();
       await creerPassageToilette(uid, { dateHeure, typeBristol, difficulte, saignement });
 
       if (saignement) {
@@ -59,6 +76,32 @@ export function ToiletEntryScreen() {
         Personne ne lit ça à part toi. Choisis ce qui ressemble le plus, au pif c'est très bien.
       </Text>
 
+      <View style={styles.carteMoment}>
+        <View style={styles.segments}>
+          <Pressable
+            onPress={() => setPlusTot(false)}
+            style={[styles.segmentMoment, !plusTot && styles.segmentMomentActif]}
+          >
+            <Text style={[styles.segmentTexte, !plusTot && styles.segmentTexteActif]}>À l'instant</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setPlusTot(true)}
+            style={[styles.segmentMoment, plusTot && styles.segmentMomentActif]}
+          >
+            <Text style={[styles.segmentTexte, plusTot && styles.segmentTexteActif]}>C'était plus tôt</Text>
+          </Pressable>
+        </View>
+        {plusTot && (
+          <View style={styles.ligneDateHeure}>
+            <TextInput style={styles.champDateHeure} value={dateSaisie} onChangeText={setDateSaisie} placeholder="AAAA-MM-JJ" />
+            <TextInput style={styles.champDateHeure} value={heureSaisie} onChangeText={setHeureSaisie} placeholder="HH:mm" />
+          </View>
+        )}
+        <Text style={styles.aideMoment}>
+          {plusTot ? "Rattraper un passage oublié, c'est très bien aussi." : `${formaterJourCourt(dateISOAujourdhui())}, maintenant.`}
+        </Text>
+      </View>
+
       <View style={styles.liste}>
         {[1, 2, 3, 4, 5, 6, 7].map((n) => {
           const actif = typeBristol === n;
@@ -68,8 +111,13 @@ export function ToiletEntryScreen() {
               onPress={() => setTypeBristol(n as 1 | 2 | 3 | 4 | 5 | 6 | 7)}
               style={[styles.ligneBristol, actif && styles.ligneBristolActive]}
             >
-              <Text style={styles.bristolNumero}>Type {n}</Text>
-              <Text style={styles.bristolDesc}>{BRISTOL_DESCRIPTIONS[n]}</Text>
+              <View style={styles.bristolArt}>
+                <IconeBristol type={n as 1 | 2 | 3 | 4 | 5 | 6 | 7} color={actif ? colors.accent800 : colors.accent700} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bristolNumero}>Type {n}</Text>
+                <Text style={styles.bristolDesc}>{BRISTOL_DESCRIPTIONS[n]}</Text>
+              </View>
             </Pressable>
           );
         })}
@@ -125,8 +173,29 @@ const styles = StyleSheet.create({
     padding: space[4],
   },
   ligneBristolActive: { backgroundColor: colors.accent100 },
-  bristolNumero: { fontFamily: fonts.heading, fontSize: 14, color: colors.text, width: 70 },
-  bristolDesc: { flex: 1, fontFamily: fonts.body, fontSize: 12.5, color: colors.neutral700 },
+  bristolArt: { width: 58, alignItems: "center", justifyContent: "center" },
+  bristolNumero: { fontFamily: fonts.heading, fontSize: 14, color: colors.text },
+  bristolDesc: { fontFamily: fonts.body, fontSize: 12.5, color: colors.neutral700, marginTop: 1 },
+  carteMoment: {
+    marginTop: space[5],
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: space[4],
+  },
+  segmentMoment: { flex: 1, alignItems: "center", paddingVertical: space[3], borderRadius: radius.pill, backgroundColor: colors.bg },
+  segmentMomentActif: { backgroundColor: colors.accent },
+  ligneDateHeure: { flexDirection: "row", gap: space[2], marginTop: space[3] },
+  champDateHeure: {
+    flex: 1,
+    textAlign: "center",
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+    paddingVertical: space[3],
+    fontFamily: fonts.heading,
+    fontSize: 15,
+    color: colors.text,
+  },
+  aideMoment: { fontFamily: fonts.body, fontSize: 12.5, color: colors.neutral700, marginTop: space[3] },
   sousTitre: {
     marginTop: space[6],
     fontFamily: fonts.bodyBold,

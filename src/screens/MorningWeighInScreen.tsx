@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Minus, Plus, ChevronDown } from "lucide-react-native";
@@ -33,6 +33,34 @@ function tempsRestant(fin: string): string {
   return `${heures}h${minutes.toString().padStart(2, "0")}`;
 }
 
+const DELAI_AVANT_REPETITION_MS = 400;
+const INTERVALLE_REPETITION_MS = 80;
+
+/** Incrémente au tap, puis répète en accéléré tant que l'appui est maintenu. */
+function useAppuiRepete(action: () => void) {
+  const delai = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalle = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function arreter() {
+    if (delai.current) clearTimeout(delai.current);
+    if (intervalle.current) clearInterval(intervalle.current);
+    delai.current = null;
+    intervalle.current = null;
+  }
+
+  useEffect(() => arreter, []);
+
+  return {
+    onPressIn: () => {
+      action();
+      delai.current = setTimeout(() => {
+        intervalle.current = setInterval(action, INTERVALLE_REPETITION_MS);
+      }, DELAI_AVANT_REPETITION_MS);
+    },
+    onPressOut: arreter,
+  };
+}
+
 export function MorningWeighInScreen() {
   const navigation = useNavigation();
   const { utilisateur, pesees, rafraichir } = useAppData();
@@ -43,6 +71,9 @@ export function MorningWeighInScreen() {
   const [etatPsy, setEtatPsy] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [note, setNote] = useState("");
   const [enCours, setEnCours] = useState(false);
+
+  const appuiMoins = useAppuiRepete(() => setPoids((p) => Math.round((p - PAS_POIDS) * 10) / 10));
+  const appuiPlus = useAppuiRepete(() => setPoids((p) => Math.round((p + PAS_POIDS) * 10) / 10));
 
   const dansLaFenetre = utilisateur
     ? estDansFenetreMatinale(heureLocaleActuelle(), utilisateur.fenetreMatinDebut, utilisateur.fenetreMatinFin)
@@ -88,11 +119,13 @@ export function MorningWeighInScreen() {
         poidsKg: Math.round(poids * 10) / 10,
         mensurations: mensurationsNombres,
         etatPsyScore: etatPsy,
-        etatPsyNote: note || undefined,
+        ...(note ? { etatPsyNote: note } : {}),
       });
       await annulerRappelsDuJour();
       await rafraichir();
       navigation.goBack();
+    } catch (e) {
+      Alert.alert("Ça n'a pas marché", (e as Error).message ?? "Erreur inconnue.");
     } finally {
       setEnCours(false);
     }
@@ -115,17 +148,14 @@ export function MorningWeighInScreen() {
       <Text style={styles.texte}>Il ne veut rien dire tout seul — c'est la ligne des semaines qui parle.</Text>
 
       <View style={styles.stepper}>
-        <Pressable style={styles.rondStepper} onPress={() => setPoids((p) => Math.round((p - PAS_POIDS) * 10) / 10)}>
+        <Pressable style={styles.rondStepper} {...appuiMoins}>
           <Minus size={24} color={colors.accent700} strokeWidth={3} />
         </Pressable>
         <View style={{ alignItems: "center" }}>
           <Text style={styles.chiffrePoids}>{poids.toFixed(1)}</Text>
           <Text style={styles.uniteStepper}>{(utilisateur?.unitePoids ?? "kg").toUpperCase()}</Text>
         </View>
-        <Pressable
-          style={[styles.rondStepper, { backgroundColor: colors.accent }]}
-          onPress={() => setPoids((p) => Math.round((p + PAS_POIDS) * 10) / 10)}
-        >
+        <Pressable style={[styles.rondStepper, { backgroundColor: colors.accent }]} {...appuiPlus}>
           <Plus size={24} color={colors.bg} strokeWidth={3} />
         </Pressable>
       </View>

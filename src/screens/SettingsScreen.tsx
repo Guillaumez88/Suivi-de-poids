@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Switch, TextInput, Alert, StyleSheet, Share, Pressable } from "react-native";
 import { signOut, deleteUser } from "firebase/auth";
-import { Download, User as IconeCompte, Trash2 } from "lucide-react-native";
+import { Download, User as IconeCompte, Trash2, Minus, Plus } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
 import { creerOuMettreAJourUtilisateur } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
@@ -39,7 +39,7 @@ const OPTIONS_UNITE_LONGUEUR: { valeur: UniteLongueur; label: string }[] = [
 const TOUTES_ZONES: MensurationZone[] = ["tour_de_taille", "hanches", "poitrine", "bras", "cuisses"];
 
 export function SettingsScreen() {
-  const { utilisateur, pesees, passages, cheatmeals, grignotages, contextes, rafraichir } = useAppData();
+  const { utilisateur, pesees, passages, cheatmeals, grignotages, contextes, seancesSport, rafraichir } = useAppData();
   const [enExport, setEnExport] = useState(false);
 
   if (!utilisateur) {
@@ -51,6 +51,13 @@ export function SettingsScreen() {
   }
 
   const imc = calculerIMC(pesees[pesees.length - 1]?.poidsKg ?? 0, utilisateur.tailleCm);
+  // Compte existant créé avant l'ajout de ce champ (absent en base), ou
+  // valeur invalide écrite par un bug précédent (NaN n'est pas rattrapé
+  // par `??`, qui ne réagit qu'à null/undefined) : repli sur 3 dans les
+  // deux cas.
+  const objectifSeancesSemaine = Number.isFinite(utilisateur.objectifSeancesSemaine)
+    ? utilisateur.objectifSeancesSemaine
+    : 3;
 
   async function majChamp(champ: Record<string, unknown>) {
     const uid = auth.currentUser?.uid;
@@ -62,7 +69,7 @@ export function SettingsScreen() {
   async function onExporterCsv() {
     setEnExport(true);
     try {
-      const csv = versCsv({ pesees, passages, cheatmeals, grignotages, contextes });
+      const csv = versCsv({ pesees, passages, cheatmeals, grignotages, contextes, seancesSport });
       await Share.share({ message: csv, title: "Export suivi de poids (CSV)" });
     } finally {
       setEnExport(false);
@@ -149,6 +156,20 @@ export function SettingsScreen() {
         <Text style={styles.aide}>Sert uniquement au calcul de l'IMC{imc !== null ? ` — IMC ${imc.toFixed(1)}` : ""}.</Text>
         <View style={styles.diviseur} />
         <View style={styles.ligneSwitch}>
+          <Text style={styles.labelLigne}>Ta taille ({utilisateur.uniteLongueur})</Text>
+          <TextInput
+            style={styles.champHeure}
+            keyboardType="numeric"
+            defaultValue={utilisateur.tailleCm?.toString() ?? ""}
+            placeholder="—"
+            onEndEditing={(e) => {
+              const valeur = Number(e.nativeEvent.text.replace(",", "."));
+              majChamp(valeur > 0 ? { tailleCm: valeur } : {});
+            }}
+          />
+        </View>
+        <View style={styles.diviseur} />
+        <View style={styles.ligneSwitch}>
           <Text style={styles.labelLigne}>Unités</Text>
           <View style={styles.segments}>
             {OPTIONS_UNITE_POIDS.map((o) => (
@@ -195,6 +216,31 @@ export function SettingsScreen() {
           })}
         </View>
         <Text style={[styles.aide, { marginTop: space[3] }]}>Tu peux en ajouter ou en retirer quand tu veux, rien n'est perdu.</Text>
+      </Carte>
+
+      <SectionKicker label="Sport" />
+      <Carte>
+        <View style={styles.ligneSwitch}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.labelLigne}>Objectif hebdomadaire</Text>
+            <Text style={styles.aide}>Nombre de séances visées chaque semaine.</Text>
+          </View>
+          <View style={styles.stepperCompact}>
+            <Pressable
+              style={styles.rondStepperCompact}
+              onPress={() => majChamp({ objectifSeancesSemaine: Math.max(0, objectifSeancesSemaine - 1) })}
+            >
+              <Minus size={16} color={colors.accent700} strokeWidth={3} />
+            </Pressable>
+            <Text style={styles.valeurStepperCompact}>{objectifSeancesSemaine}</Text>
+            <Pressable
+              style={[styles.rondStepperCompact, { backgroundColor: colors.accent }]}
+              onPress={() => majChamp({ objectifSeancesSemaine: Math.min(7, objectifSeancesSemaine + 1) })}
+            >
+              <Plus size={16} color={colors.bg} strokeWidth={3} />
+            </Pressable>
+          </View>
+        </View>
       </Carte>
 
       <SectionKicker label="Tes données" />
@@ -299,6 +345,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   ligneSwitch: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space[3] },
+  stepperCompact: { flexDirection: "row", alignItems: "center", gap: space[3] },
+  rondStepperCompact: { width: 34, height: 34, borderRadius: 999, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  valeurStepperCompact: { fontFamily: fonts.heading, fontSize: 18, color: colors.text, minWidth: 18, textAlign: "center" },
   puces: { flexDirection: "row", flexWrap: "wrap", gap: space[2] },
   ligneAction: {
     flexDirection: "row",

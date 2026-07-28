@@ -4,6 +4,7 @@ import type {
   Cheatmeal,
   Grignotage,
   ContextePeriode,
+  SeanceSport,
 } from "@/types/models";
 
 /** Section 3.8 du cahier des charges : export CSV de toutes les entrées. */
@@ -14,6 +15,7 @@ interface Donnees {
   cheatmeals: Cheatmeal[];
   grignotages: Grignotage[];
   contextes: ContextePeriode[];
+  seancesSport: SeanceSport[];
 }
 
 function ligne(valeurs: (string | number | boolean | undefined)[]): string {
@@ -62,6 +64,13 @@ export function versCsv(d: Donnees): string {
   lignes.push(ligne(["date_debut", "date_fin", "type", "note"]));
   for (const c of d.contextes) {
     lignes.push(ligne([c.dateDebut, c.dateFin, c.type, c.note]));
+  }
+
+  lignes.push("");
+  lignes.push("=== Séances de sport ===");
+  lignes.push(ligne(["date_heure", "intensite", "duree_minutes"]));
+  for (const s of d.seancesSport) {
+    lignes.push(ligne([s.dateHeure, s.intensite, s.dureeMinutes]));
   }
 
   return lignes.join("\n");

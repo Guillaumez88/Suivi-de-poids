@@ -1,19 +1,21 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { Plus, Droplet } from "lucide-react-native";
 import { auth } from "@/services/firebaseConfig";
 import { creerContexte } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
+import { IconeVoyage, IconeMaladie } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
-import { colors, fonts, space, radius } from "@/theme/theme";
+import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
 import { TypeContexte } from "@/types/models";
 
-const TYPES: { valeur: TypeContexte; label: string }[] = [
-  { valeur: "voyage", label: "Voyage" },
-  { valeur: "cycle_menstruel", label: "Cycle menstruel" },
-  { valeur: "maladie", label: "Maladie" },
-  { valeur: "autre", label: "Autre chose" },
+const TYPES: { valeur: TypeContexte; label: string; icone: (couleur: string) => React.ReactNode }[] = [
+  { valeur: "voyage", label: "Voyage", icone: (c) => <IconeVoyage size={26} color={c} /> },
+  { valeur: "cycle_menstruel", label: "Cycle menstruel", icone: (c) => <Droplet size={26} color={c} strokeWidth={iconStrokeWidth} /> },
+  { valeur: "maladie", label: "Maladie", icone: (c) => <IconeMaladie size={26} color={c} /> },
+  { valeur: "autre", label: "Autre chose", icone: (c) => <Plus size={26} color={c} strokeWidth={iconStrokeWidth} /> },
 ];
 
 function dateISOAujourdhui(): string {
@@ -56,15 +58,19 @@ export function ContextScreen() {
       </Text>
 
       <View style={styles.grille}>
-        {TYPES.map((t) => (
-          <Pressable
-            key={t.valeur}
-            onPress={() => setType(t.valeur)}
-            style={[styles.carte, type === t.valeur && styles.carteActive]}
-          >
-            <Text style={[styles.carteTexte, type === t.valeur && styles.carteTexteActif]}>{t.label}</Text>
-          </Pressable>
-        ))}
+        {TYPES.map((t) => {
+          const actif = type === t.valeur;
+          return (
+            <Pressable
+              key={t.valeur}
+              onPress={() => setType(t.valeur)}
+              style={[styles.carte, actif && styles.carteActive]}
+            >
+              {t.icone(actif ? colors.accent2_900 : colors.neutral800)}
+              <Text style={[styles.carteTexte, actif && styles.carteTexteActif]}>{t.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <View style={styles.blocDates}>
@@ -108,6 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: space[4],
+    gap: space[2],
   },
   carteActive: { backgroundColor: colors.accent2_200 },
   carteTexte: { fontFamily: fonts.heading, fontSize: 15, color: colors.text },

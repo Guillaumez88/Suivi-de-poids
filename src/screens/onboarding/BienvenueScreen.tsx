@@ -4,11 +4,13 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/services/firebaseConfig";
 import { creerOuMettreAJourUtilisateur, utilisateurParDefaut } from "@/services/dataService";
 import { EcranConteneur } from "@/components/ScreenContainer";
 import { Bouton } from "@/components/Button";
+import { IconeVague } from "@/components/icons";
 import { colors, fonts, space, radius } from "@/theme/theme";
 import { OnboardingStackParamList } from "@/navigation/types";
 
@@ -19,6 +21,19 @@ export function BienvenueScreen({ navigation }: Props) {
   const [motDePasse, setMotDePasse] = useState("");
   const [dejaUnCompte, setDejaUnCompte] = useState(false);
   const [enCours, setEnCours] = useState(false);
+
+  async function onMotDePasseOublie() {
+    if (!email) {
+      Alert.alert("Ton e-mail d'abord", "Indique ton adresse e-mail pour recevoir le lien de réinitialisation.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert("C'est envoyé", "Regarde ta boîte mail pour réinitialiser ton mot de passe.");
+    } catch (e) {
+      Alert.alert("Ça n'a pas marché", (e as Error).message);
+    }
+  }
 
   async function onCommencer() {
     if (!email || !motDePasse) {
@@ -47,7 +62,7 @@ export function BienvenueScreen({ navigation }: Props) {
   return (
     <EcranConteneur scroll={false}>
       <View style={styles.pastille}>
-        <Text style={styles.pastilleEmoji}>〜</Text>
+        <IconeVague size={30} color={colors.accent2_800} />
       </View>
       <Text style={styles.titre}>Juste toi{"\n"}et une courbe.</Text>
       <Text style={styles.paragraphe}>
@@ -77,9 +92,19 @@ export function BienvenueScreen({ navigation }: Props) {
 
       <View style={styles.bas}>
         <Bouton label={enCours ? "..." : "On commence"} onPress={onCommencer} bloc disabled={enCours} />
-        <Text style={styles.lien} onPress={() => setDejaUnCompte((v) => !v)}>
-          {dejaUnCompte ? "Créer un compte à la place" : "J'ai déjà un compte"}
-        </Text>
+        <View style={styles.rangeeLiens}>
+          <Text style={styles.lien} onPress={() => setDejaUnCompte((v) => !v)}>
+            {dejaUnCompte ? "Créer un compte à la place" : "J'ai déjà un compte"}
+          </Text>
+          <Text style={[styles.lien, { color: colors.accent700 }]} onPress={onMotDePasseOublie}>
+            Mot de passe oublié
+          </Text>
+        </View>
+        <View style={styles.puces}>
+          <View style={[styles.puce, styles.puceActive]} />
+          <View style={styles.puce} />
+          <View style={styles.puce} />
+        </View>
       </View>
     </EcranConteneur>
   );
@@ -96,7 +121,6 @@ const styles = StyleSheet.create({
     marginTop: space[8],
     marginBottom: space[6],
   },
-  pastilleEmoji: { fontSize: 26, color: colors.accent2_800 },
   titre: { fontFamily: fonts.heading, fontSize: 31, lineHeight: 36, color: colors.text },
   paragraphe: {
     fontFamily: fonts.body,
@@ -116,10 +140,14 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   bas: { marginTop: "auto", gap: space[3], paddingBottom: space[4] },
+  rangeeLiens: { flexDirection: "row", justifyContent: "center", gap: space[4] },
   lien: {
     textAlign: "center",
     fontFamily: fonts.bodyBold,
     fontSize: 13.5,
     color: colors.neutral700,
   },
+  puces: { flexDirection: "row", gap: 6, justifyContent: "center", paddingTop: space[1] },
+  puce: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.neutral300 },
+  puceActive: { width: 22, backgroundColor: colors.accent },
 });
