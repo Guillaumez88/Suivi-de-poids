@@ -17,6 +17,10 @@ const { getMessaging } = require("firebase-admin/messaging");
 
 const TOLERANCE_MINUTES = 15; // couvre le délai possible d'un cron GitHub Actions
 const FUSEAU = "Europe/Paris";
+// Déclenché manuellement (workflow_dispatch, entrée "forcer") pour tester
+// sans attendre l'heure configurée : ignore la fenêtre horaire et le
+// "déjà envoyé aujourd'hui", mais respecte toujours "pesée déjà notée".
+const FORCER = process.env.FORCER_ENVOI === "true";
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const app = initializeApp({ credential: cert(serviceAccount) });
@@ -51,6 +55,10 @@ function versMinutes(hhmm) {
 
 async function envoyerAuxTokens(uid, titre, corps) {
   const tokensSnap = await db.collection("users").doc(uid).collection("tokensPush").get();
+  if (tokensSnap.empty) {
+    console.log(`  ${uid} : aucun token push enregistré, rien à envoyer`);
+    return;
+  }
   for (const doc of tokensSnap.docs) {
     try {
       await messaging.send({
@@ -73,7 +81,9 @@ async function main() {
   const minutesMaintenant = versMinutes(heureLocale(maintenant));
 
   const usersSnap = await db.collection("users").get();
-  console.log(`${usersSnap.size} compte(s) à vérifier, ${aujourdhui} ${heureLocale(maintenant)} (${FUSEAU})`);
+  console.log(
+    `${usersSnap.size} compte(s) à vérifier, ${aujourdhui} ${heureLocale(maintenant)} (${FUSEAU})${FORCER ? " — mode forcé" : ""}`
+  );
 
   for (const userDoc of usersSnap.docs) {
     const uid = userDoc.id;
@@ -81,7 +91,10 @@ async function main() {
     if (!u.heureRappel1 || !u.heureRappel2) continue;
 
     const peseeDuJour = await db.collection("users").doc(uid).collection("pesees").doc(aujourdhui).get();
-    if (peseeDuJour.exists) continue; // déjà notée : aucun rappel (section 3.5)
+    if (peseeDuJour.exists) {
+      if (FORCER) console.log(`  ${uid} : pesée déjà notée aujourd'hui, aucun rappel envoyé`);
+      continue; // déjà notée : aucun rappel (section 3.5)
+    }
 
     let etat = u.rappelsEnvoyes;
     if (!etat || etat.date !== aujourdhui) {
@@ -95,15 +108,17 @@ async function main() {
 
     let modifie = false;
     for (const r of rappels) {
-      if (etat[r.cle]) continue;
+      if (etat[r.cle] && !FORCER) continue;
       const minutesCible = versMinutes(r.heure);
       const dansLaFenetre = minutesMaintenant >= minutesCible && minutesMaintenant < minutesCible + TOLERANCE_MINUTES;
-      if (!dansLaFenetre) continue;
+      if (!dansLaFenetre && !FORCER) continue;
 
       console.log(`  ${uid} : envoi ${r.cle} (${r.heure})`);
       await envoyerAuxTokens(uid, r.titre, r.corps);
-      etat[r.cle] = true;
-      modifie = true;
+      if (!FORCER) {
+        etat[r.cle] = true;
+        modifie = true;
+      }
     }
 
     if (modifie) {
