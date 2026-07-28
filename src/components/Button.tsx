@@ -1,5 +1,5 @@
-import React, { ReactNode } from "react";
-import { Pressable, Text, View, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import React, { ReactNode, useRef } from "react";
+import { Animated, Pressable, Text, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { colors, fonts, space, radius } from "@/theme/theme";
 
 type Variante = "primary" | "secondary" | "ghost";
@@ -16,43 +16,59 @@ interface Props {
 }
 
 export function Bouton({ label, onPress, variante = "primary", bloc, style, disabled, icone, fin }: Props) {
+  // Léger retrait au tap (au lieu d'un simple changement d'opacité instantané) :
+  // un des rares endroits où l'app doit "réagir" physiquement au toucher.
+  const echelle = useRef(new Animated.Value(1)).current;
+
+  function auContact() {
+    Animated.spring(echelle, { toValue: 0.96, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
+  }
+  function auRelachement() {
+    Animated.spring(echelle, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 6 }).start();
+  }
+
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={disabled ? undefined : auContact}
+      onPressOut={disabled ? undefined : auRelachement}
       disabled={disabled}
-      style={({ pressed }) => [
-        styles.base,
-        variante === "primary" && styles.primary,
-        variante === "secondary" && styles.secondary,
-        variante === "ghost" && styles.ghost,
-        bloc && styles.bloc,
-        !!(icone || fin) && styles.rangee,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
-        style,
-      ]}
+      style={[bloc && styles.bloc, style]}
     >
-      {icone}
-      <Text
+      <Animated.View
         style={[
-          styles.label,
-          variante === "primary" && styles.labelPrimary,
-          variante === "ghost" && styles.labelGhost,
+          styles.base,
+          variante === "primary" && styles.primary,
+          variante === "secondary" && styles.secondary,
+          variante === "ghost" && styles.ghost,
+          bloc && styles.bloc,
+          !!(icone || fin) && styles.rangee,
+          disabled && styles.disabled,
+          { transform: [{ scale: echelle }] },
         ]}
       >
-        {label}
-      </Text>
-      {fin && (
+        {icone}
         <Text
           style={[
-            styles.fin,
+            styles.label,
             variante === "primary" && styles.labelPrimary,
             variante === "ghost" && styles.labelGhost,
           ]}
         >
-          {fin}
+          {label}
         </Text>
-      )}
+        {fin && (
+          <Text
+            style={[
+              styles.fin,
+              variante === "primary" && styles.labelPrimary,
+              variante === "ghost" && styles.labelGhost,
+            ]}
+          >
+            {fin}
+          </Text>
+        )}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -70,7 +86,6 @@ const styles = StyleSheet.create({
   ghost: { backgroundColor: "transparent", paddingHorizontal: space[2] },
   bloc: { alignSelf: "stretch" },
   rangee: { flexDirection: "row", alignItems: "center", gap: space[2] },
-  pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
   label: {
     fontFamily: fonts.heading,

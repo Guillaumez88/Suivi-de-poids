@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { auth } from "@/services/firebaseConfig";
 import { creerConsommationEau, supprimerConsommationEau } from "@/services/dataService";
 import { useAppData } from "@/state/AppDataContext";
+import { PastilleConfirmation } from "@/components/PastilleConfirmation";
 import { colors, fonts, space, radius, shadow, iconStrokeWidth } from "@/theme/theme";
 import { dateISOAujourdhui, estLeJour } from "@/utils/businessRules";
 
@@ -55,9 +56,9 @@ export function WaterConfirmScreen() {
     <View style={styles.fond}>
       <Pressable style={StyleSheet.absoluteFill} onPress={() => navigation.goBack()} />
       <View style={styles.carte}>
-        <View style={styles.pastille}>
+        <PastilleConfirmation>
           <GlassWater size={44} color={colors.accent2_700} strokeWidth={iconStrokeWidth} />
-        </View>
+        </PastilleConfirmation>
         <Text style={styles.titre}>Verre d'eau noté</Text>
         <Text style={styles.texte}>
           {(totalMlAujourdhui / 1000).toFixed(2).replace(".", ",")} L sur {objectifLitres.toFixed(2).replace(".", ",")} L
@@ -89,14 +90,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space[3],
     ...shadow.lg,
-  },
-  pastille: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent2_100,
-    alignItems: "center",
-    justifyContent: "center",
   },
   titre: { fontFamily: fonts.heading, fontSize: 26, color: colors.text, textAlign: "center" },
   texte: { fontFamily: fonts.body, fontSize: 14.5, lineHeight: 22, color: colors.neutral800, textAlign: "center" },

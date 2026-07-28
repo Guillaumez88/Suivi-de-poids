@@ -8,6 +8,7 @@ import { Bouton } from "@/components/Button";
 import { Carte } from "@/components/Card";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { CourbeDePoids } from "@/components/WeightCurve";
+import { BarreProgression } from "@/components/ProgressBar";
 import { IconeToilettes, IconeExtra, IconeGrignotage, IconeContexte } from "@/components/icons";
 import { useAppData } from "@/state/AppDataContext";
 import { colors, fonts, space, radius, iconStrokeWidth } from "@/theme/theme";
@@ -216,14 +217,9 @@ export function HomeScreen() {
             {seancesCetteSemaine} / {objectifSport}
           </Text>
         </View>
-        <View style={styles.pisteProgression}>
-          <View
-            style={[
-              styles.progression,
-              { width: `${objectifSport > 0 ? Math.min(100, (seancesCetteSemaine / objectifSport) * 100) : 100}%` },
-            ]}
-          />
-        </View>
+        <BarreProgression
+          pourcentage={objectifSport > 0 ? Math.min(100, (seancesCetteSemaine / objectifSport) * 100) : 100}
+        />
       </Carte>
 
       <Carte style={{ marginTop: space[3] }}>
@@ -233,14 +229,9 @@ export function HomeScreen() {
             {eauLitresAujourdhui.toFixed(2).replace(".", ",")} / {objectifEau.toFixed(2).replace(".", ",")} L
           </Text>
         </View>
-        <View style={styles.pisteProgression}>
-          <View
-            style={[
-              styles.progression,
-              { width: `${objectifEau > 0 ? Math.min(100, (eauLitresAujourdhui / objectifEau) * 100) : 100}%` },
-            ]}
-          />
-        </View>
+        <BarreProgression
+          pourcentage={objectifEau > 0 ? Math.min(100, (eauLitresAujourdhui / objectifEau) * 100) : 100}
+        />
       </Carte>
 
       <View style={styles.enteteSemaine}>
@@ -380,8 +371,6 @@ const styles = StyleSheet.create({
   chipValeur: { fontFamily: fonts.heading, fontSize: 15, color: colors.text, marginTop: space[1] },
   enteteSport: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sportValeur: { fontFamily: fonts.heading, fontSize: 15.5, color: colors.text },
-  pisteProgression: { height: 8, borderRadius: radius.pill, backgroundColor: colors.neutral200, marginTop: space[3], overflow: "hidden" },
-  progression: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.accent2_500 },
   enteteSemaine: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: space[5] },
   legendeSemaine: { flexDirection: "row", gap: space[2] },
   legendeItem: { flexDirection: "row", alignItems: "center", gap: 4 },

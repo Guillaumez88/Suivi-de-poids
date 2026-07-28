@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { auth } from "@/services/firebaseConfig";
 import { creerGrignotage, supprimerGrignotage } from "@/services/dataService";
 import { useAppData } from "@/state/AppDataContext";
+import { PastilleConfirmation } from "@/components/PastilleConfirmation";
 import { colors, fonts, space, radius, shadow, iconStrokeWidth } from "@/theme/theme";
 
 function formaterMoment(date: Date): string {
@@ -53,9 +54,9 @@ export function SnackConfirmScreen() {
     <View style={styles.fond}>
       <Pressable style={StyleSheet.absoluteFill} onPress={() => navigation.goBack()} />
       <View style={styles.carte}>
-        <View style={styles.pastille}>
+        <PastilleConfirmation>
           <Check size={44} color={colors.accent2_700} strokeWidth={iconStrokeWidth} />
-        </View>
+        </PastilleConfirmation>
         <Text style={styles.titre}>Grignotage noté</Text>
         <Text style={styles.texte}>
           {formaterMoment(momentCreation)}. Voilà, c'est tout — pas de formulaire, pas de commentaire.
@@ -86,14 +87,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space[3],
     ...shadow.lg,
-  },
-  pastille: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent2_100,
-    alignItems: "center",
-    justifyContent: "center",
   },
   titre: { fontFamily: fonts.heading, fontSize: 26, color: colors.text, textAlign: "center" },
   texte: { fontFamily: fonts.body, fontSize: 14.5, lineHeight: 22, color: colors.neutral800, textAlign: "center" },
