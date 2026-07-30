@@ -15,7 +15,6 @@ const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
-const TOLERANCE_MINUTES = 15; // couvre le délai possible d'un cron GitHub Actions
 const FUSEAU = "Europe/Paris";
 // Déclenché manuellement (workflow_dispatch, entrée "forcer") pour tester
 // sans attendre l'heure configurée : ignore la fenêtre horaire et le
@@ -56,20 +55,23 @@ function versMinutes(hhmm) {
 async function envoyerAuxTokens(uid, titre, corps) {
   const tokensSnap = await db.collection("users").doc(uid).collection("tokensPush").get();
   if (tokensSnap.empty) {
-    console.log(`  ${uid} : aucun token push enregistré, rien à envoyer`);
+    console.log(`    ${uid} : aucun token push enregistré, rien à envoyer`);
     return;
   }
+  console.log(`    ${uid} : ${tokensSnap.size} token(s) push à contacter`);
   for (const doc of tokensSnap.docs) {
     try {
-      await messaging.send({
+      const messageId = await messaging.send({
         token: doc.data().token,
         notification: { title: titre, body: corps },
       });
+      console.log(`      -> envoyé à ${doc.id.slice(0, 12)}… (messageId ${messageId})`);
     } catch (err) {
       if (err.code === "messaging/registration-token-not-registered") {
+        console.log(`      -> token ${doc.id.slice(0, 12)}… périmé, supprimé`);
         await doc.ref.delete();
       } else {
-        console.error(`  échec d'envoi à ${uid}/${doc.id} :`, err.message);
+        console.error(`      -> échec d'envoi à ${doc.id.slice(0, 12)}… :`, err.code || err.message);
       }
     }
   }
@@ -109,9 +111,16 @@ async function main() {
     let modifie = false;
     for (const r of rappels) {
       if (etat[r.cle] && !FORCER) continue;
+      // Pas de borne haute : les runs planifiés GitHub Actions peuvent être
+      // retardés de façon très irrégulière (observé : plusieurs heures de
+      // décalage), donc on ne rate plus le rappel faute d'un run tombé
+      // exactement dans une fenêtre étroite après l'heure cible.
+      // "etat[r.cle]" empêche un envoi en double une fois fait, et la remise
+      // à zéro quotidienne (plus haut) évite qu'un rappel non envoyé un jour
+      // ne traîne sur le jour suivant.
       const minutesCible = versMinutes(r.heure);
-      const dansLaFenetre = minutesMaintenant >= minutesCible && minutesMaintenant < minutesCible + TOLERANCE_MINUTES;
-      if (!dansLaFenetre && !FORCER) continue;
+      const heureDepassee = minutesMaintenant >= minutesCible;
+      if (!heureDepassee && !FORCER) continue;
 
       console.log(`  ${uid} : envoi ${r.cle} (${r.heure})`);
       await envoyerAuxTokens(uid, r.titre, r.corps);
