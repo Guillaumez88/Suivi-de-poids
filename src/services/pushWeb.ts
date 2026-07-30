@@ -30,11 +30,17 @@ const BASE_PATH = process.env.EXPO_PUBLIC_BASE_PATH || "";
 // à remplacer avant la mise en production des rappels web.
 const VAPID_KEY = "BJz9is4dZcXFbcmgQgmOR14bmlr58mthgWGs2-GxV8GaWQqAn_ZMOhbQqISBpcbOqIPVpMXHjJ1MkzGbIvEkvQQ";
 
+// activerPushWeb est rappelée à chaque rafraîchissement des données (voir
+// App.tsx), potentiellement des dizaines de fois par session — sans ce
+// garde-fou, chaque appel rebrancherait un nouvel écouteur "onMessage" en
+// plus des précédents, affichant une même notification en double, triple...
+let ecouteForegroundActive = false;
+
 export async function activerPushWeb(uid: string): Promise<void> {
   if (Platform.OS !== "web") return;
   if (typeof window === "undefined" || typeof Notification === "undefined" || !("serviceWorker" in navigator)) return;
 
-  const { getMessaging, getToken, isSupported } = await import("firebase/messaging");
+  const { getMessaging, getToken, isSupported, onMessage } = await import("firebase/messaging");
   const { app } = await import("@/services/firebaseConfig");
 
   if (!(await isSupported())) return;
@@ -50,5 +56,19 @@ export async function activerPushWeb(uid: string): Promise<void> {
   const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
   if (token) {
     await enregistrerTokenPush(uid, token);
+  }
+
+  // Circuit "app ouverte" : FCM ne passe alors PAS par le service worker
+  // (onBackgroundMessage), qui ne reçoit que si l'app est fermée ou en
+  // arrière-plan — sans cet écouteur, une notification arrivant pendant que
+  // l'app est ouverte est confirmée côté serveur mais jamais affichée.
+  if (!ecouteForegroundActive) {
+    ecouteForegroundActive = true;
+    onMessage(messaging, (payload) => {
+      const { title, body } = payload.notification ?? {};
+      if (title) {
+        new Notification(title, { body, icon: `${BASE_PATH}/icon-192.png` });
+      }
+    });
   }
 }
